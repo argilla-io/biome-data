@@ -1,0 +1,5 @@
+name: biome-data
+
+dependencies:
+  - python~=3.6
+  - pip>=19.1.1co

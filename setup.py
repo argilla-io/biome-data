@@ -20,7 +20,7 @@ if __name__ == "__main__":
             "pyarrow~=0.14",
             "ujson~=1.35",
             "pandas~=0.25.0",
-            "elasticsearch~=7.0",
+            "elasticsearch~=6.0",
             "bokeh~=1.3",
             "xlrd~=1.2",
             "flatdict~=3.4",

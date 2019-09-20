@@ -1,16 +1,13 @@
 import glob
 import logging
 import warnings
+from glob import glob
 from typing import Dict, Optional, Union, List
 
-import dask
 import dask.dataframe as dd
-import dask.distributed
 import flatdict
-import pandas
 import pandas as pd
 from dask import delayed
-from dask.dataframe import DataFrame
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import scan
 
@@ -21,7 +18,7 @@ _logger = logging.getLogger(__name__)
 #       For now, all reader methods have to return a dask.DataFrame
 
 
-def from_csv(path: Union[str, List[str]], **params) -> DataFrame:
+def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
     """Creates a `dask.DataFrame` from one or several csv files.
     Includes a "path column".
 
@@ -38,10 +35,19 @@ def from_csv(path: Union[str, List[str]], **params) -> DataFrame:
         A `dask.DataFrame`
 
     """
-    return dd.read_csv(path, include_path_column=True, **params)
+    path_list = _get_file_paths(path)
+
+    dds = []
+    for path_name in path_list:
+        ddf = dd.read_csv(path_name, include_path_column=True, **params)
+        dds.append(ddf)
+
+    return dd.concat(dds)
 
 
-def from_json(path: Union[str, List[str]], flatten: bool = True, **params) -> DataFrame:
+def from_json(
+    path: Union[str, List[str]], flatten: bool = True, **params
+) -> dd.DataFrame:
     """Creates a `dask.DataFrame` from one or several json files.
     Includes a "path column".
 
@@ -64,13 +70,18 @@ def from_json(path: Union[str, List[str]], flatten: bool = True, **params) -> Da
         df = pd.read_json(*args, **kwargs)
         return flatten_dataframe(df) if flatten else df
 
-    ddf = dd.read_json(path, flatten=flatten, engine=json_engine, **params)
-    ddf["path"] = path
+    path_list = _get_file_paths(path)
 
-    return ddf
+    dds = []
+    for path_name in path_list:
+        ddf = dd.read_json(path_name, flatten=flatten, engine=json_engine, **params)
+        ddf["path"] = path_name
+        dds.append(ddf)
+
+    return dd.concat(dds)
 
 
-def from_parquet(path: Union[str, List[str]], **params) -> DataFrame:
+def from_parquet(path: Union[str, List[str]], **params) -> dd.DataFrame:
     """Creates a `dask.DataFrame` from one or several parquet files.
     Includes a "path column".
 
@@ -86,13 +97,18 @@ def from_parquet(path: Union[str, List[str]], **params) -> DataFrame:
     df
         A `dask.DataFrame`
     """
-    ddf = dd.read_parquet(path, **params, engine="pyarrow")
-    ddf["path"] = path
+    path_list = _get_file_paths(path)
 
-    return ddf
+    dds = []
+    for path_name in path_list:
+        ddf = dd.read_parquet(path_name, **params, engine="pyarrow")
+        ddf["path"] = path_name
+        dds.append(ddf)
+
+    return dd.concat(dds)
 
 
-def from_excel(path: str, **params) -> DataFrame:
+def from_excel(path: Union[str, List[str]], **params) -> dd.DataFrame:
     """Creates a `dask.DataFrame` from one or several excel files.
     Includes a "path column".
 
@@ -108,13 +124,38 @@ def from_excel(path: str, **params) -> DataFrame:
     df
         A `dask.DataFrame`
     """
-    file_names = glob.glob(path, recursive=True)
-    ddf = dd.from_pandas(
-        pd.read_excel(path, **params).fillna(""), npartitions=max(1, len(file_names))
-    )
+    path_list = _get_file_paths(path)
 
-    ddf["path"] = path
-    return ddf
+    dds = []
+    for path_name in path_list:
+        parts = delayed(pd.read_excel)(path_name, **params)
+        df = dd.from_delayed(parts).fillna("")
+        df["path"] = path_name
+        dds.append(df)
+
+    return dd.concat(dds)
+
+
+def _get_file_paths(paths: Union[str, List[str]]) -> List[str]:
+    """Return a list of path names that match the path names in paths.
+    The path names can contain shell-style wildcards.
+
+    Parameters
+    ----------
+    paths
+        A path name or a list of path names. These path names can contain wildcards.
+
+    Returns
+    -------
+    list_of_paths
+        A list of path names.
+    """
+    if isinstance(paths, str):
+        return glob(paths)
+    path_lists = [glob(path) for path in paths]
+
+    # flatten the list of lists
+    return [path for sublist in path_lists for path in sublist]
 
 
 def from_elasticsearch(
@@ -122,8 +163,9 @@ def from_elasticsearch(
     npartitions: int = 2,
     client_cls: Optional = None,
     client_kwargs=None,
+    source_only: Optional[bool] = None,
     **kwargs,
-) -> DataFrame:
+) -> dd.DataFrame:
     """Reads documents from Elasticsearch.
 
     By default, documents are sorted by ``_doc``. For more information see the
@@ -159,6 +201,9 @@ def from_elasticsearch(
     >>> docs = from_elasticsearch(query, index="myindex", doc_type="stuff")
 
     """
+
+    if source_only is not None:
+        warnings.warn("source-only field will be removed", DeprecationWarning)
 
     if npartitions < 2:
         _logger.warning(

@@ -7,7 +7,7 @@ if __name__ == "__main__":
     setup(
         version="0.1.dev",
         name="biome-data",
-        description="Biome-data is a commmon module for data source manipulation",
+        description="Biome-data is a common module for data source manipulation",
         author="Recognai",
         author_email="francisco@recogn.ai",
         url="https://www.recogn.ai/",

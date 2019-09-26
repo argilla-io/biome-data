@@ -7,7 +7,7 @@ if __name__ == "__main__":
     setup(
         version="0.1.dev",
         name="biome-data",
-        description="Biome-data is a commmon module for data source manipulation",
+        description="Biome-data is a common module for data source manipulation",
         author="Recognai",
         author_email="francisco@recogn.ai",
         url="https://www.recogn.ai/",
@@ -17,6 +17,7 @@ if __name__ == "__main__":
         package_dir={"": "src"},
         install_requires=[
             "dask[complete]~=2.0",
+            "cachey~=0.1",  # required by dask.cache
             "pyarrow~=0.14",
             "ujson~=1.35",
             "pandas~=0.25.0",

@@ -117,6 +117,7 @@ def configure_dask_cluster(
                     threads_per_worker=1,
                     asynchronous=False,
                     scheduler_port=8786,  # TODO configurable
+                    processes=False,
                     memory_limit=worker_mem,
                     silence_logs=logging.ERROR,
                     local_directory=worker_space,

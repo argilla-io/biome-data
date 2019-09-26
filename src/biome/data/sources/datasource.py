@@ -151,8 +151,6 @@ class DataSource:
             .apply(self.forward.sanitize_label, meta=("label", "object"))
         )
         self._add_forward_token_columns(forward_dataframe)
-        # TODO: Remove rows that contain an empty label or empty tokens!!
-        #       Not so straight forward: what if record 1 is partially empty, does it produce empty TextFields??
 
         return forward_dataframe
 

@@ -3,33 +3,50 @@ import logging
 import os
 import re
 import tempfile
-from multiprocessing.pool import ThreadPool
+from typing import Dict, Any, Union
+from typing import Optional
 
 import dask
 import dask.multiprocessing
 from dask.cache import Cache
 from dask.utils import parse_bytes
-from typing import Dict, Any, Union
-from typing import Optional
+
+from biome.data import ENV_ES_HOSTS, ENV_DASK_CACHE_SIZE, DEFAULT_DASK_CACHE_SIZE
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
     from yaml import Loader, Dumper
 
-import yaml
 from dask.distributed import Client, LocalCluster
-
-ENV_DASK_CLUSTER = "DASK_CLUSTER"
-ENV_DASK_CACHE_SIZE = "DASK_CACHE_SIZE"
-DEFAULT_DASK_CACHE_SIZE = 2e9
-
-ENV_ES_HOSTS = "ES_HOSTS"
 
 __logger = logging.getLogger(__name__)
 
 
 def get_nested_property_from_data(data: Dict, property_key: str) -> Optional[Any]:
+    """Search an deep property key in a data dictionary.
+
+    For example, having the data dictionary {"a": {"b": "the value"}}, the call
+
+    >> self.get_nested_property_from_data( {"a": {"b": "the value"}}, "a.b")
+
+    is equivalent to:
+
+    >> data["a"]["b"]
+
+
+    Parameters
+    ----------
+    data
+        The data dictionary
+    property_key
+        The (deep) property key
+
+    Returns
+    -------
+
+        The property value if found, None otherwise
+    """
     if data is None or not isinstance(data, Dict):
         return None
     if property_key in data:
@@ -42,51 +59,33 @@ def get_nested_property_from_data(data: Dict, property_key: str) -> Optional[Any
         )
 
 
-def is_document(source_config: Dict[str, Any]) -> bool:
-    return source_config.get("format", "raw") == "raw"
-
-
-def default_elasticsearch_sink(
-    source_config: str, binary_path: str, es_batch_size: int
-) -> Dict:
-    def sanizite_index(index_name: str) -> str:
-        return re.sub(r"\W", "_", index_name)
-
-    file_name = os.path.basename(source_config)
-    model_name = os.path.dirname(binary_path)
-    if not model_name:
-        model_name = binary_path
-
-    return dict(
-        index=sanizite_index(
-            "prediction {} with {}".format(file_name, model_name).lower()
-        ),
-        index_recreate=True,
-        type="_doc",
-        es_hosts=os.getenv(ENV_ES_HOSTS, "http://localhost:9200"),
-        es_batch_size=es_batch_size,
-    )
-
-
-def yaml_to_dict(filepath: str):
-    with open(filepath) as yaml_content:
-        config = yaml.safe_load(yaml_content)
-    return config
-
-
-def read_params_from_file(filepath: str) -> Dict[str, Any]:
-    with open(filepath, "r") as stream:
-        return yaml.load(stream, Loader)
-
-
 def configure_dask_cluster(
     address: str = "local", n_workers: int = 1, worker_memory: Union[str, int] = "1GB"
 ) -> Optional[Client]:
+    """Creates a dask client (with a LocalCluster if needed)
+
+    Parameters
+    ----------
+    address
+        The cluster address. If "local" try to connect to a local cluster listening the 8786 port.
+        If no cluster listening, creates a new LocalCluster
+    n_workers
+        The number of cluster workers (only a new "local" cluster generation)
+    worker_memory
+        The memory reserved for local workers
+
+    Returns
+    -------
+    A new dask Client
+
+    """
     global dask_client
+
     try:
         if dask_client:
             return dask_client
-    except:
+    except Exception as e:
+        __logger.debug(e)
         pass
 
     def create_dask_client(
@@ -132,21 +131,14 @@ def configure_dask_cluster(
     dask_cluster = address
     dask_cache_size = os.environ.get(ENV_DASK_CACHE_SIZE, DEFAULT_DASK_CACHE_SIZE)
 
-    if dask_cluster:
-        if isinstance(worker_memory, str):
-            worker_memory = parse_bytes(worker_memory)
+    if isinstance(worker_memory, str):
+        worker_memory = parse_bytes(worker_memory)
 
-        return create_dask_client(
-            dask_cluster, dask_cache_size, workers=n_workers, worker_mem=worker_memory
-        )
-    else:
-        pool = ThreadPool(n_workers)
-        dask.config.set(pool=pool)
-        dask.config.set(num_workers=n_workers)
-        dask.config.set(scheduler="processes")
+    dask_client = create_dask_client(
+        dask_cluster, dask_cache_size, workers=n_workers, worker_mem=worker_memory
+    )
 
-    __logger.info("Dask configuration:")
-    __logger.info(dask.config.config)
+    return dask_client
 
 
 @atexit.register
@@ -154,6 +146,11 @@ def close_dask_client():
     global dask_client
 
     try:
-        dask_client.close()
-    except:
+        dask_client.close(timeout=10)
+        if dask_client and dask_client.cluster:
+            dask_client.cluster.close(timeout=10)
+    except Exception as e:
+        __logger.debug(e)
         pass
+    finally:
+        dask_client = None

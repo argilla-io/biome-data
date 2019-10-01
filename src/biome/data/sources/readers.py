@@ -122,7 +122,6 @@ def from_elasticsearch(
     npartitions: int = 2,
     client_cls: Optional = None,
     client_kwargs=None,
-    source_only: Optional[bool] = None,
     **kwargs,
 ) -> DataFrame:
     """Reads documents from Elasticsearch.
@@ -161,9 +160,6 @@ def from_elasticsearch(
 
     """
 
-    if source_only is not None:
-        warnings.warn("source-only field will be removed", DeprecationWarning)
-
     if npartitions < 2:
         _logger.warning(
             "A minium of 2 partitions is needed for elasticsearch scan slices....Setting partitions number to 2"
@@ -198,6 +194,8 @@ def _elasticsearch_scan(client_cls, client_kwargs, **params) -> pandas.DataFrame
     # the ES client as it cannot be serialized.
     # TODO check empty DataFrame
     client = client_cls(**(client_kwargs or {}))
-    return pandas.DataFrame(
+    df = pandas.DataFrame(
         (map_to_source(document) for document in scan(client, **params))
-    ).set_index("id")
+    )
+
+    return df.set_index("id") if not df.empty else df

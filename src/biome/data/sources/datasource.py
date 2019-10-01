@@ -77,7 +77,7 @@ class DataSource:
 
     @classmethod
     def add_supported_format(
-        cls, format_key: str, parser: Callable, default_params: Dict[str, Any]
+        cls, format_key: str, parser: Callable, default_params: Dict[str, Any] = {}
     ) -> None:
         """Add a new format and reader to the data source readers.
 
@@ -92,7 +92,7 @@ class DataSource:
         """
         if format_key in cls.SUPPORTED_FORMATS.keys():
             _logger.warning("Already defined format {}".format(format_key))
-            return
+            pass
 
         cls.SUPPORTED_FORMATS[format_key] = (parser, default_params)
 

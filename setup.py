@@ -17,7 +17,7 @@ if __name__ == "__main__":
         package_dir={"": "src"},
         install_requires=[
             "dask[complete]~=2.0",
-            "cachey~=0.1",  # required by dask.cache
+            "cachey~=0.1.0",  # required by dask.cache
             "pyarrow~=0.14",
             "ujson~=1.35",
             "pandas~=0.25.0",

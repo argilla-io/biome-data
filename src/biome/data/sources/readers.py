@@ -27,7 +27,7 @@ def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
     path
         Path to files
     params
-        Extra arguments passed on to `pandas.read_csv`
+        Extra arguments passed on to `dask.dataframe.read_csv`
 
     Returns
     -------
@@ -35,14 +35,7 @@ def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
         A `dask.DataFrame`
 
     """
-    path_list = _get_file_paths(path)
-
-    dds = []
-    for path_name in path_list:
-        ddf = dd.read_csv(path_name, include_path_column=True, **params)
-        dds.append(ddf)
-
-    return dd.concat(dds)
+    return dd.read_csv(path, include_path_column=True, **params)
 
 
 def from_json(

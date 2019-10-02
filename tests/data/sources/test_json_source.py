@@ -7,7 +7,7 @@ from biome.data.sources import DataSource
 from tests import TESTS_BASEPATH
 from tests.test_support import DaskSupportTest
 
-FILES_PATH = os.path.join(TESTS_BASEPATH, "resources/data")
+FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")
 
 
 class JsonDatasourceTest(DaskSupportTest):

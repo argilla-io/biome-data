@@ -77,7 +77,7 @@ class DataSource:
 
     @classmethod
     def add_supported_format(
-        cls, format_key: str, parser: Callable, default_params: Dict[str, Any] = {}
+        cls, format_key: str, parser: Callable, default_params: Dict[str, Any] = None
     ) -> None:
         """Add a new format and reader to the data source readers.
 
@@ -94,7 +94,7 @@ class DataSource:
             _logger.warning("Already defined format {}".format(format_key))
             pass
 
-        cls.SUPPORTED_FORMATS[format_key] = (parser, default_params)
+        cls.SUPPORTED_FORMATS[format_key] = (parser, default_params or {})
 
     def to_bag(self) -> Bag:
         """Turns the DataFrame of the data source into a `dask.Bag` of dictionaries, one dict for each row.

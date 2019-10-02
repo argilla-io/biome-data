@@ -8,7 +8,7 @@ from tests.test_support import DaskSupportTest
 NPARTITIONS = 3
 ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
 ES_INDEX = os.getenv("ES_INDEX", "test-index")
-ES_DOC = os.getenv("ES_INDEX", "_doc")
+ES_DOC = os.getenv("ES_DOC", "_doc")
 
 
 class ElasticsearchReaderTest(DaskSupportTest):

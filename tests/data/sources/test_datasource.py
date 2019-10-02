@@ -58,3 +58,14 @@ class DataSourceTest(DaskSupportTest):
             self.assertIn(
                 v, ds.forward.metadata.values(), f"Value {v} should be in metadata"
             )
+
+    def test_read_forward_without_label(self):
+
+        ds = DataSource(
+            format="json",
+            forward=ClassificationForwardConfiguration(tokens="summary"),
+            path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
+        )
+
+        ddf = ds.to_forward_dataframe()
+        self.assertNotIn("label", ddf.columns)

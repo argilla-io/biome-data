@@ -145,11 +145,13 @@ class DataSource:
         # This is strictly a shallow copy of the underlying computational graph
         forward_dataframe = self._df.copy()
 
-        forward_dataframe["label"] = (
-            forward_dataframe[self.forward.label]
-            .astype(str)
-            .apply(self.forward.sanitize_label, meta=("label", "object"))
-        )
+        if self.forward.label:
+            forward_dataframe["label"] = (
+                forward_dataframe[self.forward.label]
+                .astype(str)
+                .apply(self.forward.sanitize_label, meta=("label", "object"))
+            )
+
         self._add_forward_token_columns(forward_dataframe)
 
         return forward_dataframe

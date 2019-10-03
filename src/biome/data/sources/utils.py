@@ -70,7 +70,7 @@ def make_paths_relative(
     """
     for k, v in cfg_dict.items():
         if isinstance(v, dict):
-            make_paths_relative(yaml_dirname, v)
+            make_paths_relative(yaml_dirname, v, path_keys)
 
         if path_keys and k not in path_keys:
             continue

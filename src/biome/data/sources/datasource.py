@@ -74,6 +74,7 @@ class DataSource:
         self._df = df
         self.forward = forward
 
+
     @classmethod
     def add_supported_format(
         cls, format_key: str, parser: Callable, default_params: Dict[str, Any] = None
@@ -143,7 +144,12 @@ class DataSource:
         # This is strictly a shallow copy of the underlying computational graph
         forward_dataframe = self._df.copy()
 
-        if self.forward.label:
+        if (
+                not self.forward.label
+                or self.forward.label not in forward_dataframe.columns
+        ):
+            forward_dataframe["label"] = ""  # Initialize label field. Must be an string
+        else:
             forward_dataframe["label"] = (
                 forward_dataframe[self.forward.label]
                 .astype(str)

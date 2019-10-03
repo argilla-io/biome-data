@@ -156,7 +156,6 @@ def from_elasticsearch(
     npartitions: int = 2,
     client_cls: Optional = None,
     client_kwargs=None,
-    source_only: Optional[bool] = None,
     **kwargs,
 ) -> dd.DataFrame:
     """Reads documents from Elasticsearch.
@@ -195,9 +194,6 @@ def from_elasticsearch(
 
     """
 
-    if source_only is not None:
-        warnings.warn("source-only field will be removed", DeprecationWarning)
-
     if npartitions < 2:
         _logger.warning(
             "A minium of 2 partitions is needed for elasticsearch scan slices....Setting partitions number to 2"
@@ -218,10 +214,10 @@ def from_elasticsearch(
         ]
     ]
 
-    return dask.dataframe.from_delayed(index_scan)
+    return dd.from_delayed(index_scan)
 
 
-def _elasticsearch_scan(client_cls, client_kwargs, **params) -> pandas.DataFrame:
+def _elasticsearch_scan(client_cls, client_kwargs, **params) -> pd.DataFrame:
     def map_to_source(x: Dict) -> Dict:
         flat = flatdict.FlatDict(
             {**x["_source"], **dict(id=x["_id"], resource=x["_index"])}, delimiter="."
@@ -232,7 +228,7 @@ def _elasticsearch_scan(client_cls, client_kwargs, **params) -> pandas.DataFrame
     # the ES client as it cannot be serialized.
     # TODO check empty DataFrame
     client = client_cls(**(client_kwargs or {}))
-    df = pandas.DataFrame(
+    df = pd.DataFrame(
         (map_to_source(document) for document in scan(client, **params))
     )
 

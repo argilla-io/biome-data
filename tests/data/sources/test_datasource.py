@@ -67,5 +67,5 @@ class DataSourceTest(DaskSupportTest):
             path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
         )
 
-        ddf = ds.to_forward_dataframe()
-        self.assertNotIn("label", ddf.columns)
+        df = ds.to_forward_dataframe().compute()
+        self.assertTrue(len([s for s in df["label"].values if len(s) > 1]) == 0)

@@ -1,6 +1,5 @@
 import glob
 import logging
-import warnings
 from glob import glob
 from typing import Dict, Optional, Union, List
 
@@ -228,8 +227,6 @@ def _elasticsearch_scan(client_cls, client_kwargs, **params) -> pd.DataFrame:
     # the ES client as it cannot be serialized.
     # TODO check empty DataFrame
     client = client_cls(**(client_kwargs or {}))
-    df = pd.DataFrame(
-        (map_to_source(document) for document in scan(client, **params))
-    )
+    df = pd.DataFrame((map_to_source(document) for document in scan(client, **params)))
 
     return df.set_index("id") if not df.empty else df

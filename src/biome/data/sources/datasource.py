@@ -72,7 +72,6 @@ class DataSource:
         if "id" in df.columns:
             df = df.set_index("id")
         self._df = df
-
         self.forward = forward
 
     @classmethod
@@ -120,7 +119,6 @@ class DataSource:
         """
         forward_df = self.to_forward_dataframe()
         dict_keys = [str(column).strip() for column in forward_df.columns]
-
         return forward_df.to_bag(index=True).map(row2dict, columns=dict_keys)
 
     def to_dataframe(self) -> DataFrame:
@@ -255,6 +253,10 @@ class ClassificationForwardConfiguration(object):
                 )
 
         self.tokens = tokens
+        self._cfg = dict(label=label, **tokens)
+
+    def as_dict(self):
+        return self._cfg.copy()
 
     @staticmethod
     def load_metadata(path: str) -> Dict[str, str]:

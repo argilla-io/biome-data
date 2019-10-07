@@ -1,9 +1,9 @@
 import os
 
 import pytest
-
 from biome.data.sources import DataSource
 from biome.data.sources.datasource import ClassificationForwardConfiguration
+
 from tests import DaskSupportTest, TESTS_BASEPATH
 
 FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")

@@ -2,7 +2,6 @@ import os
 
 import pytest
 from biome.data.sources import DataSource
-from biome.data.sources.datasource import ClassificationForwardConfiguration
 
 from tests import DaskSupportTest, TESTS_BASEPATH
 
@@ -29,43 +28,27 @@ class DataSourceTest(DaskSupportTest):
         ds = DataSource(format="new-format")
         self.assertFalse(ds.to_dataframe().columns is None)
 
-    def test_forward_transformation_expecting_error(self):
+    def test_no_mapping_error(self):
 
         ds = DataSource(
             format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
         )
         with pytest.raises(ValueError):
-            ds.to_forward_dataframe()
+            ds.to_mapped_dataframe()
 
-    def test_forward_transformation(self):
+    def test_to_mapped(self):
         ds = DataSource(
             format="json",
-            forward=ClassificationForwardConfiguration(
-                label="overall", tokens="summary"
-            ),
+            mapping={"label": "overall", "tokens": "summary"},
             path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
         )
 
-        data = ds.to_forward_bag().take(1)[0]
-        self.assertIn("label", data)
-        self.assertIn("tokens", data)
+        df = ds.to_mapped_dataframe()
 
-    def test_read_from_yaml_with_metadata_file(self):
-        ds = DataSource.from_yaml(os.path.join(FILES_PATH, "datasource.yml"))
-        df = ds.to_forward_dataframe()[["tokens", "label"]].compute()
+        self.assertIn("label", df.columns)
+        self.assertIn("tokens", df.columns)
 
-        for v in df["label"].values:
-            self.assertIn(
-                v, ds.forward.metadata.values(), f"Value {v} should be in metadata"
-            )
+        bag = ds.to_mapped_bag().take(1)[0]
 
-    def test_read_forward_without_label(self):
-
-        ds = DataSource(
-            format="json",
-            forward=ClassificationForwardConfiguration(tokens="summary"),
-            path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
-        )
-
-        ddf = ds.to_forward_dataframe()
-        self.assertNotIn("label", ddf.columns)
+        self.assertIn("label", bag)
+        self.assertIn("tokens", bag)

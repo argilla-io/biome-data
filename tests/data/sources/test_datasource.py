@@ -2,7 +2,6 @@ import os
 
 import pytest
 from biome.data.sources import DataSource
-from biome.data.sources.datasource import ClassificationForwardConfiguration
 
 from tests import DaskSupportTest, TESTS_BASEPATH
 
@@ -29,43 +28,27 @@ class DataSourceTest(DaskSupportTest):
         ds = DataSource(format="new-format")
         self.assertFalse(ds.to_dataframe().columns is None)
 
-    def test_forward_transformation_expecting_error(self):
+    def test_to_mapped(self):
+        ds = DataSource(
+            format="json",
+            mapping={"label": "overall", "tokens": "summary"},
+            path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
+        )
+
+        df = ds.to_mapped_dataframe()
+
+        self.assertIn("label", df.columns)
+        self.assertIn("tokens", df.columns)
+
+        bag = ds.to_mapped_bag().take(1)[0]
+
+        self.assertIn("label", bag)
+        self.assertIn("tokens", bag)
+
+    def test_no_mapping(self):
 
         ds = DataSource(
             format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
         )
-        with pytest.raises(ValueError):
-            ds.to_forward_dataframe()
+        assert ds.to_mapped_dataframe().compute().equals(ds.to_dataframe().compute())
 
-    def test_forward_transformation(self):
-        ds = DataSource(
-            format="json",
-            forward=ClassificationForwardConfiguration(
-                label="overall", tokens="summary"
-            ),
-            path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
-        )
-
-        data = ds.to_forward_bag().take(1)[0]
-        self.assertIn("label", data)
-        self.assertIn("tokens", data)
-
-    def test_read_from_yaml_with_metadata_file(self):
-        ds = DataSource.from_yaml(os.path.join(FILES_PATH, "datasource.yml"))
-        df = ds.to_forward_dataframe()[["tokens", "label"]].compute()
-
-        for v in df["label"].values:
-            self.assertIn(
-                v, ds.forward.metadata.values(), f"Value {v} should be in metadata"
-            )
-
-    def test_read_forward_without_label(self):
-
-        ds = DataSource(
-            format="json",
-            forward=ClassificationForwardConfiguration(tokens="summary"),
-            path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
-        )
-
-        ddf = ds.to_forward_dataframe()
-        self.assertNotIn("label", ddf.columns)

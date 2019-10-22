@@ -1,8 +1,8 @@
 import logging
 import os.path
-from typing import Dict, Callable, Any, Union
+from typing import Dict, Callable, Any, Union, List
+import warnings
 
-import pandas as pd
 import yaml
 from dask.bag import Bag
 from dask.dataframe import DataFrame
@@ -30,9 +30,9 @@ class DataSource:
     ----------
     format
         The data format. Supported formats are listed as keys in the `SUPPORTED_FORMATS` dict of this class.
-    forward
-        An instance of a `ClassificationForwardConfiguration`
-        Used to pass on the right parameters to the model's forward method.
+    mapping
+        Used to map the features (columns) of the data source
+        to the parameters of the DatasetReader's `text_to_instance` method.
     kwargs
         Additional kwargs are passed on to the *source readers* that depend on the format.
     """
@@ -52,10 +52,7 @@ class DataSource:
     }
 
     def __init__(
-        self,
-        format: str,
-        forward: "ClassificationForwardConfiguration" = None,
-        **kwargs,
+        self, format: str, mapping: Dict[str, Union[List[str], str]] = None, **kwargs
     ):
         try:
             clean_format = format.lower().strip()
@@ -72,7 +69,7 @@ class DataSource:
         if "id" in df.columns:
             df = df.set_index("id")
         self._df = df
-        self.forward = forward
+        self.mapping = mapping or {}
 
     @classmethod
     def add_supported_format(
@@ -108,8 +105,8 @@ class DataSource:
 
         return self._df.to_bag(index=True).map(row2dict, columns=dict_keys)
 
-    def to_forward_bag(self) -> Bag:
-        """Turns the forward DataFrame of the data source into a `dask.Bag` of dictionaries, one dict for each row.
+    def to_mapped_bag(self) -> Bag:
+        """Turns the mapped DataFrame of the data source into a `dask.Bag` of dictionaries, one dict for each row.
         Each dictionary has the column names as keys.
 
         Returns
@@ -117,69 +114,55 @@ class DataSource:
         bag
             A `dask.Bag` of dicts.
         """
-        forward_df = self.to_forward_dataframe()
-        dict_keys = [str(column).strip() for column in forward_df.columns]
-        return forward_df.to_bag(index=True).map(row2dict, columns=dict_keys)
+        mapped_df = self.to_mapped_dataframe()
+        dict_keys = [str(column).strip() for column in mapped_df.columns]
+        return mapped_df.to_bag(index=True).map(row2dict, columns=dict_keys)
 
     def to_dataframe(self) -> DataFrame:
-        """Returns the DataFrame of the data source"""
+        """Returns the underlying DataFrame of the data source"""
         return self._df
 
-    def to_forward_dataframe(self) -> DataFrame:
+    def to_mapped_dataframe(self) -> DataFrame:
         """
-        Adds columns to the DataFrame that are named after the parameter names in the model's forward method.
-        The content of these columns is specified in the forward dictionary of the data source yaml file.
+        Adds columns to the DataFrame that are named after the parameter names in the DatasetReader's `text_to_instance`
+        method. The content of these columns is specified in the mapping dictionary.
 
         Returns
         -------
-        forward_dataframe
-            Contains additional columns corresponding to the parameter names of the model's forward method.
+        mapped_dataframe
+            Contains additional columns corresponding to the parameter names
+            of the DatasetReader's `text_to_instance` method.
         """
-        if not self.forward:
-            raise ValueError(
-                "For a 'forward_dataframe' you need to specify a `ForwardConfiguration`!"
-            )
-
         # This is strictly a shallow copy of the underlying computational graph
-        forward_dataframe = self._df.copy()
+        mapped_dataframe = self._df.copy()
 
-        if self.forward.label:
-            forward_dataframe["label"] = (
-                forward_dataframe[self.forward.label]
-                .astype(str)
-                .apply(self.forward.sanitize_label, meta=("label", "object"))
-            )
-
-        self._add_forward_token_columns(forward_dataframe)
-
-        return forward_dataframe
-
-    def _add_forward_token_columns(self, forward_dataframe: DataFrame):
-        """Helper function to add the forward token parameters for the model's forward method"""
-        for forward_token_name, data_column_names in self.forward.tokens.items():
-            # convert str to list, otherwise the axis=1 raises an error with the returned pd.Series in the next line
-            if isinstance(data_column_names, str):
-                data_column_names = [data_column_names]
+        for parameter_name, data_features in self.mapping.items():
+            # convert to list, otherwise the axis=1 raises an error with the returned pd.Series in the try statement
+            # if no header is present, the column names are ints
+            if isinstance(data_features, (str, int)):
+                data_features = [data_features]
 
             try:
-                forward_dataframe[forward_token_name] = forward_dataframe[
-                    data_column_names
-                ].apply(
-                    lambda x: x.to_dict(), axis=1, meta=(forward_token_name, "object")
-                )
+                mapped_dataframe[parameter_name] = mapped_dataframe.loc[
+                    :, data_features
+                ].apply(self._to_dict_or_str, axis=1, meta=(parameter_name, "object"))
             except KeyError as e:
-                raise KeyError(
-                    e, f"Did not find {data_column_names} in the data source!"
-                )
-            # if the data source df already has a column with the forward_token_name, it will be replaced!
+                raise KeyError(e, f"Did not find {data_features} in the data source!")
+            # if the data source df already has a parameter_name column, it will be replaced!
 
-        return
+        return mapped_dataframe
+
+    def _to_dict_or_str(self, value: "pandas.Series") -> Union[Dict, str]:
+        """Transform a `pandas.Series` of strings to a dict or a str, depending on its length.
+        Also applies a strip() to the strings."""
+        if len(value) > 1:
+            return value.to_dict()
+        else:
+            return str(value.iloc[0])
 
     @classmethod
     def from_yaml(cls: "DataSource", file_path: str) -> "DataSource":
         """Create a data source from a yaml file.
-
-        The yaml file has to serialize a dict, whose keys matches the arguments of the `DataSource` class.
 
         Parameters
         ----------
@@ -199,108 +182,57 @@ class DataSource:
         path_keys = ["path", "metadata_file"]
         make_paths_relative(os.path.dirname(file_path), cfg_dict, path_keys=path_keys)
 
-        forward = cfg_dict.pop("forward", None)
-        forward_config = (
-            ClassificationForwardConfiguration(**forward) if forward else None
-        )
-
-        return cls(**cfg_dict, forward=forward_config)
-
-
-class ClassificationForwardConfiguration(object):
-    """
-        This ``ClassificationForwardConfiguration`` contains the
-        forward transformation of the label and tokens in classification models.
-
-        Parameters
-        ----------
-        label
-            Name of the label column in the data
-        target
-            (deprecated) Just an alias for label
-        tokens
-            These kwargs match the token names (of the model's forward method)
-            to the column names (of the data).
-    """
-
-    def __init__(self, label: Union[str, dict] = None, target: dict = None, **tokens):
-        self._label = None
-        self._default_label = None
-        self._metadata = None
-
-        if target and not label:
-            label = target
-
-        if label:
-            if isinstance(label, str):
-                self._label = label
-            else:
-                self._label = (
-                    label.get("name")
-                    or label.get("label")
-                    or label.get("gold_label")
-                    or label.get("field")
+        mapping = cfg_dict.pop("mapping", None)
+        # backward compatibility
+        if not mapping:
+            try:
+                mapping = cfg_dict.pop("forward")
+                warnings.warn(
+                    "The key 'forward' is deprecated! Please use the 'mapping' key in the future.",
+                    DeprecationWarning,
                 )
-                if not self._label:
-                    raise RuntimeError("I am missing the label name!")
-                self._default_label = label.get(
-                    "default", label.get("use_missing_label")
-                )
-                self._metadata = (
-                    self.load_metadata(label.get("metadata_file"))
-                    if label.get("metadata_file")
-                    else None
-                )
+            except KeyError:
+                pass
 
-        self.tokens = tokens
-        self._cfg = dict(label=label, **tokens)
+        mapping = cls._make_backward_compatible(mapping) if mapping else None
 
-    def as_dict(self):
-        return self._cfg.copy()
+        return cls(**cfg_dict, mapping=mapping)
 
     @staticmethod
-    def load_metadata(path: str) -> Dict[str, str]:
-        """
-        Loads the "metadata_file" (should be called mapping file).
-        For now it only allows to map line number -> str.
+    def _make_backward_compatible(mapping: Dict) -> Dict:
+        """Makes the mapping section of a data source yml file backward compatible.
+        For a 1.0 version, this method can be removed.
 
         Parameters
         ----------
-        path
-            Path to the metadata (mapping) file
-
-        Returns
-        -------
         mapping
-            A dict containing the mapping
+            The mapping dict of the data source yml
         """
-        with open(path) as metadata_file:
-            classes = [line.rstrip("\n").rstrip() for line in metadata_file]
+        if "target" in mapping and "label" not in mapping:
+            warnings.warn(
+                "The 'target' key is deprecated! Please use the mapping format in the future.",
+                DeprecationWarning,
+            )
+            mapping["label"] = mapping.pop("target")
 
-        mapping = {idx + 1: cls for idx, cls in enumerate(classes)}
-        # mapping variant with integer numbers
-        mapping = {**mapping, **{str(key): value for key, value in mapping.items()}}
-
+        if "label" in mapping and isinstance(mapping["label"], dict):
+            warnings.warn(
+                "Please use the mapping format for the 'label' key in the future.",
+                DeprecationWarning,
+            )
+            label_dict = mapping["label"]
+            label_key = (
+                label_dict.get("name")
+                or label_dict.get("label")
+                or label_dict.get("gold_label")
+                or label_dict.get("field")
+            )
+            if label_key:
+                mapping["label"] = label_key
+            else:
+                raise RuntimeError("Cannot find the 'label' value in the given format!")
+            if "metadata_file" in label_dict:
+                raise DeprecationWarning(
+                    "The 'metadata_file' functionality is deprecated, please modify your source file directly!"
+                )
         return mapping
-
-    @property
-    def label(self) -> str:
-        return self._label
-
-    @property
-    def default_label(self):
-        return self._default_label
-
-    @property
-    def metadata(self):
-        return self._metadata
-
-    def sanitize_label(self, label: str) -> str:
-        """Sanitizes the label str, uses a default label (optional), maps the label to a str (optional)"""
-        label = label.strip()
-        if self.default_label:
-            label = label if label else self.default_label
-        if self.metadata:
-            label = self.metadata.get(label, label)
-
-        return label

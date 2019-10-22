@@ -1,7 +1,5 @@
 import os
 
-import pandas
-
 from tests import DaskSupportTest, TESTS_BASEPATH
 
 FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")

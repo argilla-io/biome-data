@@ -140,8 +140,9 @@ class DataSource:
         mapped_dataframe = self._df.copy()
 
         for parameter_name, data_features in self.mapping.items():
-            # convert str to list, otherwise the axis=1 raises an error with the returned pd.Series in the try statement
-            if isinstance(data_features, (str, int)):  # if no header is present, the column names are ints
+            # convert to list, otherwise the axis=1 raises an error with the returned pd.Series in the try statement
+            # if no header is present, the column names are ints
+            if isinstance(data_features, (str, int)):
                 data_features = [data_features]
 
             try:
@@ -158,9 +159,9 @@ class DataSource:
         """Transform a `pandas.Series` of strings to a dict or a str, depending on its length.
         Also applies a strip() to the strings."""
         if len(value) > 1:
-            return {str(v).strip(): str(k).strip() for v, k in value.to_dict().items()}
+            return value.to_dict()
         else:
-            return str(value.iloc[0]).strip()
+            return str(value.iloc[0])
 
     @classmethod
     def from_yaml(cls: "DataSource", file_path: str) -> "DataSource":

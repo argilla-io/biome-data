@@ -69,7 +69,7 @@ class DataSource:
         if "id" in df.columns:
             df = df.set_index("id")
         self._df = df
-        self.mapping = mapping
+        self.mapping = mapping or {}
 
     @classmethod
     def add_supported_format(
@@ -133,9 +133,6 @@ class DataSource:
             Contains additional columns corresponding to the parameter names
             of the DatasetReader's `text_to_instance` method.
         """
-        if not self.mapping:
-            raise ValueError("For a 'mapped_dataframe' you need to specify a mapping!")
-
         # This is strictly a shallow copy of the underlying computational graph
         mapped_dataframe = self._df.copy()
 

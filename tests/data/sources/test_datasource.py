@@ -28,14 +28,6 @@ class DataSourceTest(DaskSupportTest):
         ds = DataSource(format="new-format")
         self.assertFalse(ds.to_dataframe().columns is None)
 
-    def test_no_mapping_error(self):
-
-        ds = DataSource(
-            format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
-        )
-        with pytest.raises(ValueError):
-            ds.to_mapped_dataframe()
-
     def test_to_mapped(self):
         ds = DataSource(
             format="json",
@@ -52,3 +44,11 @@ class DataSourceTest(DaskSupportTest):
 
         self.assertIn("label", bag)
         self.assertIn("tokens", bag)
+
+    def test_no_mapping(self):
+
+        ds = DataSource(
+            format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
+        )
+        assert ds.to_mapped_dataframe().compute().equals(ds.to_dataframe().compute())
+

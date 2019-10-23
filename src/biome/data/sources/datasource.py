@@ -31,7 +31,7 @@ class DataSource:
     attributes
         Attributes needed for extract data from source
     format
-        The data format. Optional. If found, overwrite to extracted from source.
+        The data format. Optional. If found, overwrite the format extracted from source.
         Supported formats are listed as keys in the `SUPPORTED_FORMATS` dict of this class.
     mapping
         Used to map the features (columns) of the data source
@@ -76,12 +76,7 @@ class DataSource:
         kwargs = kwargs or {}
 
         if not format and source:
-            if isinstance(source, str):
-                source = [source]
-            formats = set([self.format_from_source(src) for src in source])
-            if len(formats) != 1:
-                raise TypeError(f"source must be homogeneous: {formats}")
-            format = formats.pop()
+            format = self.__format_from_source(source)
 
         source_reader, defaults = self._find_reader(format)
         reader_arguments = {**defaults, **kwargs, **attributes}
@@ -268,14 +263,6 @@ class DataSource:
                 )
         return mapping
 
-    def __reader_from_source(
-        self, source: Union[str, List[str]]
-    ) -> Tuple[Callable, dict]:
-
-        raise TypeError(
-            f"Format {source} not supported. Supported formats are: {', '.join(self.SUPPORTED_FORMATS)}"
-        )
-
     def _find_reader(self, source_format: str) -> Tuple[Callable, dict]:
         try:
             clean_format = source_format.lower().strip()
@@ -286,6 +273,15 @@ class DataSource:
             )
 
     @staticmethod
-    def format_from_source(source: str):
-        name, extension = os.path.splitext(source)
-        return extension[1:] if extension else name
+    def __format_from_source(source: Union[str, List[str]]) -> str:
+        if isinstance(source, str):
+            source = [source]
+        formats = []
+        for src in source:
+            name, extension = os.path.splitext(src)
+            formats.append(extension[1:] if extension else name)
+
+        formats = set(formats)
+        if len(formats) != 1:
+            raise TypeError(f"source must be homogeneous: {formats}")
+        return formats.pop()

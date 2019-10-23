@@ -1,6 +1,6 @@
 import logging
 import os.path
-from typing import Dict, Callable, Any, Union, List
+from typing import Dict, Callable, Any, Union, List, Optional, Tuple
 import warnings
 
 import yaml
@@ -16,8 +16,6 @@ from biome.data.sources.readers import (
 )
 from biome.data.sources.utils import make_paths_relative
 
-_logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
-
 from .utils import row2dict
 
 
@@ -28,16 +26,23 @@ class DataSource:
 
     Parameters
     ----------
+    source
+        The data source. Could be a list of filesystem path, or a key name indicating the source backend (elasticsearch)
+    attributes
+        Attributes needed for extract data from source
     format
-        The data format. Supported formats are listed as keys in the `SUPPORTED_FORMATS` dict of this class.
+        The data format. Optional. If found, overwrite to extracted from source.
+        Supported formats are listed as keys in the `SUPPORTED_FORMATS` dict of this class.
     mapping
         Used to map the features (columns) of the data source
         to the parameters of the DatasetReader's `text_to_instance` method.
     kwargs
         Additional kwargs are passed on to the *source readers* that depend on the format.
+        @Deprecated. Use `attributes` instead
     """
 
-    # maps the supported formats to the corresponding "source readers"
+    _logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+
     SUPPORTED_FORMATS = {
         "xls": (from_excel, dict(na_filter=False, keep_default_na=False, dtype=str)),
         "xlsx": (from_excel, dict(na_filter=False, keep_default_na=False, dtype=str)),
@@ -45,29 +50,55 @@ class DataSource:
         "json": (from_json, dict()),
         "jsonl": (from_json, dict()),
         "json-l": (from_json, dict()),
-        "elasticsearch": (from_elasticsearch, dict()),
-        "elastic": (from_elasticsearch, dict()),
-        "es": (from_elasticsearch, dict()),
         "parquet": (from_parquet, dict()),
+        # No file system based readers
+        "elasticsearch": (from_elasticsearch, dict()),
     }
+    # maps the supported formats to the corresponding "source readers"
 
     def __init__(
-        self, format: str, mapping: Dict[str, Union[List[str], str]] = None, **kwargs
+        self,
+        source: Optional[Union[str, List[str]]] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+        mapping: Optional[Dict[str, Union[List[str], str]]] = None,
+        format: Optional[str] = None,
+        **kwargs,
     ):
-        try:
-            clean_format = format.lower().strip()
-            source_reader, arguments = self.SUPPORTED_FORMATS[clean_format]
-        except KeyError:
-            raise TypeError(
-                f"Format {format} not supported. Supported formats are: {', '.join(self.SUPPORTED_FORMATS)}"
+
+        if kwargs:
+            warnings.warn(
+                "Passing keyword arguments is deprecated and will be disabled."
+                " Please, use attributes argument instead",
+                DeprecationWarning,
             )
 
-        df = source_reader(**{**arguments, **kwargs}).dropna(how="all")
+        attributes = attributes or {}
+        kwargs = kwargs or {}
+
+        if not format and source:
+            if isinstance(source, str):
+                source = [source]
+            formats = set([self.format_from_source(src) for src in source])
+            if len(formats) != 1:
+                raise TypeError(f"source must be homogeneous: {formats}")
+            format = formats.pop()
+
+        source_reader, defaults = self._find_reader(format)
+        reader_arguments = {**defaults, **kwargs, **attributes}
+        # TODO this should be managed by an FileSystemDataSourceReader class or something like that,
+        #  but we just check non file-based formats to keep backward compatibility
+        if source and format not in ["elasticsearch"]:
+            df = source_reader(path=source, **reader_arguments).dropna(how="all")
+        else:
+            df = source_reader(**reader_arguments).dropna(how="all")
+
         df = df.rename(
             columns={column: column.strip() for column in df.columns.astype(str).values}
         )
+        # TODO allow disable index reindex
         if "id" in df.columns:
             df = df.set_index("id")
+
         self._df = df
         self.mapping = mapping or {}
 
@@ -87,7 +118,7 @@ class DataSource:
             Default parameters for the parser function
         """
         if format_key in cls.SUPPORTED_FORMATS.keys():
-            _logger.warning("Already defined format {}".format(format_key))
+            cls._logger.warning("Already defined format {}".format(format_key))
             pass
 
         cls.SUPPORTED_FORMATS[format_key] = (parser, default_params or {})
@@ -236,3 +267,25 @@ class DataSource:
                     "The 'metadata_file' functionality is deprecated, please modify your source file directly!"
                 )
         return mapping
+
+    def __reader_from_source(
+        self, source: Union[str, List[str]]
+    ) -> Tuple[Callable, dict]:
+
+        raise TypeError(
+            f"Format {source} not supported. Supported formats are: {', '.join(self.SUPPORTED_FORMATS)}"
+        )
+
+    def _find_reader(self, source_format: str) -> Tuple[Callable, dict]:
+        try:
+            clean_format = source_format.lower().strip()
+            return self.SUPPORTED_FORMATS[clean_format]
+        except KeyError:
+            raise TypeError(
+                f"Format {source_format} not supported. Supported formats are: {', '.join(self.SUPPORTED_FORMATS)}"
+            )
+
+    @staticmethod
+    def format_from_source(source: str):
+        name, extension = os.path.splitext(source)
+        return extension[1:] if extension else name

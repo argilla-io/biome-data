@@ -1,8 +1,8 @@
 import os
 
 import pytest
-from biome.data.sources import DataSource
 
+from biome.data.sources import DataSource
 from tests import DaskSupportTest, TESTS_BASEPATH
 
 FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")
@@ -10,9 +10,11 @@ FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")
 
 class DataSourceTest(DaskSupportTest):
     def test_wrong_format(self):
-
         with pytest.raises(TypeError):
             DataSource(format="not-found")
+        # New format
+        with pytest.raises(TypeError):
+            DataSource(source="not-found")
 
     def test_add_mock_format(self):
         def ds_parser(**kwargs):
@@ -24,31 +26,54 @@ class DataSourceTest(DaskSupportTest):
             )
 
         DataSource.add_supported_format("new-format", ds_parser)
-        DataSource.add_supported_format("new-format", ds_parser)
-        ds = DataSource(format="new-format")
-        self.assertFalse(ds.to_dataframe().columns is None)
+
+        for ds in [DataSource(format="new-format"), DataSource(source="new-format")]:
+            self.assertFalse(ds.to_dataframe().columns is None)
 
     def test_to_mapped(self):
-        ds = DataSource(
-            format="json",
-            mapping={"label": "overall", "tokens": "summary"},
-            path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
-        )
+        the_mapping = {"label": "overall", "tokens": "summary"}
 
-        df = ds.to_mapped_dataframe()
+        for ds in [
+            DataSource(
+                format="json",
+                mapping=the_mapping,
+                path=os.path.join(FILES_PATH, "dataset_source.jsonl"),
+            ),
+            DataSource(
+                source=os.path.join(FILES_PATH, "dataset_source.jsonl"),
+                mapping=the_mapping,
+            ),
+        ]:
+            df = ds.to_mapped_dataframe()
 
-        self.assertIn("label", df.columns)
-        self.assertIn("tokens", df.columns)
+            self.assertIn("label", df.columns)
+            self.assertIn("tokens", df.columns)
 
-        bag = ds.to_mapped_bag().take(1)[0]
+            bag = ds.to_mapped_bag().take(1)[0]
 
-        self.assertIn("label", bag)
-        self.assertIn("tokens", bag)
+            self.assertIn("label", bag)
+            self.assertIn("tokens", bag)
 
     def test_no_mapping(self):
+        for ds in [
+            DataSource(
+                format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
+            ),
+            DataSource(source=os.path.join(FILES_PATH, "dataset_source.jsonl")),
+        ]:
 
-        ds = DataSource(
-            format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
-        )
-        assert ds.to_mapped_dataframe().compute().equals(ds.to_dataframe().compute())
+            self.assertTrue(
+                ds.to_mapped_dataframe().compute().equals(ds.to_dataframe().compute())
+            )
 
+    def test_load_multiple_formats(self):
+        files = [
+            os.path.join(FILES_PATH, "dataset_source.jsonl"),
+            os.path.join(FILES_PATH, "dataset_source.csv"),
+        ]
+        with pytest.raises(TypeError):
+            DataSource(source=files)
+
+    def test_override_format(self):
+        with pytest.raises(TypeError):
+            DataSource(source=os.path.join(FILES_PATH, "*.jsonl"), format="not-found")

@@ -1,7 +1,6 @@
 import atexit
 import logging
 import os
-import re
 import tempfile
 from typing import Dict, Any, Union
 from typing import Optional
@@ -11,7 +10,7 @@ import dask.multiprocessing
 from dask.cache import Cache
 from dask.utils import parse_bytes
 
-from biome.data import ENV_ES_HOSTS, ENV_DASK_CACHE_SIZE, DEFAULT_DASK_CACHE_SIZE
+from biome.data import ENV_DASK_CACHE_SIZE, DEFAULT_DASK_CACHE_SIZE
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper

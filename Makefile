@@ -2,7 +2,7 @@
 default: help
 
 check: ## applies a code pylint with autopep8 reformating
-	@autopep8 --recursive --in-place .
+	@black .
 	@pylint --exit-zero --rcfile=setup.cfg  src
 
 test: check ## launch package tests

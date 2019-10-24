@@ -66,7 +66,8 @@ def from_json(
 
     dds = []
     for path_name in path_list:
-        ddf = dd.read_json(path_name, flatten=flatten, engine=json_engine, **params)
+        ddf = dd.read_json(path_name, flatten=flatten,
+                           engine=json_engine, **params)
         ddf["path"] = path_name
         dds.append(ddf)
 
@@ -227,6 +228,7 @@ def _elasticsearch_scan(client_cls, client_kwargs, **params) -> pd.DataFrame:
     # the ES client as it cannot be serialized.
     # TODO check empty DataFrame
     client = client_cls(**(client_kwargs or {}))
-    df = pd.DataFrame((map_to_source(document) for document in scan(client, **params)))
+    df = pd.DataFrame((map_to_source(document)
+                       for document in scan(client, **params)))
 
     return df.set_index("id") if not df.empty else df

@@ -128,7 +128,8 @@ def configure_dask_cluster(
     # pd.options.mode.chained_assignment = None
 
     dask_cluster = address
-    dask_cache_size = os.environ.get(ENV_DASK_CACHE_SIZE, DEFAULT_DASK_CACHE_SIZE)
+    dask_cache_size = os.environ.get(
+        ENV_DASK_CACHE_SIZE, DEFAULT_DASK_CACHE_SIZE)
 
     if isinstance(worker_memory, str):
         worker_memory = parse_bytes(worker_memory)

@@ -1,10 +1,9 @@
+from biome.data.sources import DataSource
 import os
 
 from tests import DaskSupportTest, TESTS_BASEPATH
 
 FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")
-
-from biome.data.sources import DataSource
 
 
 class ParquetDataSourceTest(DaskSupportTest):
@@ -15,4 +14,3 @@ class ParquetDataSourceTest(DaskSupportTest):
         df = ds.to_dataframe().compute()
         self.assertTrue("reviewerID" in df.columns)
         self.assertTrue("path" in df.columns)
-

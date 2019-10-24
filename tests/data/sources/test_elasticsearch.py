@@ -12,7 +12,7 @@ ES_DOC = os.getenv("ES_DOC", "_doc")
 
 
 class ElasticsearchReaderTest(DaskSupportTest):
-    def load_data_to_elasticsearch(self, data, host: str, index: str, doc:str):
+    def load_data_to_elasticsearch(self, data, host: str, index: str, doc: str):
         from elasticsearch import Elasticsearch
         from elasticsearch import helpers
 
@@ -46,4 +46,5 @@ class ElasticsearchReaderTest(DaskSupportTest):
         self.assertTrue(
             es_index.npartitions == NPARTITIONS, "Wrong number of partitions"
         )
-        self.assertTrue("id" not in es_index.columns.values, "Expected id as index")
+        self.assertTrue("id" not in es_index.columns.values,
+                        "Expected id as index")

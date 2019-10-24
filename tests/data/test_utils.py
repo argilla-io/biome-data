@@ -47,5 +47,6 @@ class UtilTests(unittest.TestCase):
         data = {"the": {"nested": {"property": "the values"}}}
 
         self.assertEqual(
-            "the values", get_nested_property_from_data(data, "the.nested.property")
+            "the values", get_nested_property_from_data(
+                data, "the.nested.property")
         )

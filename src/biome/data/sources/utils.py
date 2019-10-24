@@ -11,7 +11,6 @@ _DASK_PATH_COLUMN_NAME = "path"
 def row2dict(
     row: Tuple, columns: List[str], default_path: Optional[str] = None
 ) -> Dict[str, Any]:
-
     """ Convert a pandas row into a dict object """
     id = row[0]
     data = row[1:]

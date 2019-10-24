@@ -1,3 +1,5 @@
+from typing import Dict
+import warnings
 import json
 import logging
 
@@ -7,8 +9,6 @@ from biome.data.sinks.elasticsearch import es_sink
 from biome.data.sinks.file import file_sink
 
 __logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
-import warnings
-from typing import Dict
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 

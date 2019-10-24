@@ -59,7 +59,8 @@ class DataSourceTest(DaskSupportTest):
             DataSource(
                 format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
             ),
-            DataSource(source=os.path.join(FILES_PATH, "dataset_source.jsonl")),
+            DataSource(source=os.path.join(
+                FILES_PATH, "dataset_source.jsonl")),
         ]:
 
             self.assertTrue(
@@ -76,4 +77,5 @@ class DataSourceTest(DaskSupportTest):
 
     def test_override_format(self):
         with pytest.raises(TypeError):
-            DataSource(source=os.path.join(FILES_PATH, "*.jsonl"), format="not-found")
+            DataSource(source=os.path.join(
+                FILES_PATH, "*.jsonl"), format="not-found")

@@ -83,12 +83,14 @@ class DataSource:
         # TODO this should be managed by an FileSystemDataSourceReader class or something like that,
         #  but we just check non file-based formats to keep backward compatibility
         if source and format not in ["elasticsearch"]:
-            df = source_reader(path=source, **reader_arguments).dropna(how="all")
+            df = source_reader(
+                path=source, **reader_arguments).dropna(how="all")
         else:
             df = source_reader(**reader_arguments).dropna(how="all")
 
         df = df.rename(
-            columns={column: column.strip() for column in df.columns.astype(str).values}
+            columns={column: column.strip()
+                     for column in df.columns.astype(str).values}
         )
         # TODO allow disable index reindex
         if "id" in df.columns:
@@ -173,7 +175,8 @@ class DataSource:
                     :, data_features
                 ].apply(self._to_dict_or_str, axis=1, meta=(parameter_name, "object"))
             except KeyError as e:
-                raise KeyError(e, f"Did not find {data_features} in the data source!")
+                raise KeyError(
+                    e, f"Did not find {data_features} in the data source!")
             # if the data source df already has a parameter_name column, it will be replaced!
 
         return mapped_dataframe
@@ -206,7 +209,8 @@ class DataSource:
         # path_keys is not necessary, but specifying the dict keys
         # (for which we check for relative paths) is a safer choice
         path_keys = ["path", "metadata_file"]
-        make_paths_relative(os.path.dirname(file_path), cfg_dict, path_keys=path_keys)
+        make_paths_relative(os.path.dirname(file_path),
+                            cfg_dict, path_keys=path_keys)
 
         mapping = cfg_dict.pop("mapping", None)
         # backward compatibility
@@ -256,7 +260,8 @@ class DataSource:
             if label_key:
                 mapping["label"] = label_key
             else:
-                raise RuntimeError("Cannot find the 'label' value in the given format!")
+                raise RuntimeError(
+                    "Cannot find the 'label' value in the given format!")
             if "metadata_file" in label_dict:
                 raise DeprecationWarning(
                     "The 'metadata_file' functionality is deprecated, please modify your source file directly!"

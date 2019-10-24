@@ -21,8 +21,7 @@ class ExcelDatasourceTest(DaskSupportTest):
         tmpfile = tempfile.mkdtemp()
         store_dataset(datasource.to_bag(), dict(path=tmpfile))
 
-        stored_dataset = DataSource(
-            format="json", path=os.path.join(tmpfile, "*.part"))
+        stored_dataset = DataSource(format="json", path=os.path.join(tmpfile, "*.part"))
 
         stored = stored_dataset.to_bag().compute()
         read = datasource.to_bag().compute()
@@ -31,7 +30,6 @@ class ExcelDatasourceTest(DaskSupportTest):
 
         variable_keys = ["resource", "id"]
         [
-            self.assertEqual(drop_keys(a, variable_keys),
-                             drop_keys(a, variable_keys))
+            self.assertEqual(drop_keys(a, variable_keys), drop_keys(a, variable_keys))
             for a, b in zip(read, stored)
         ]

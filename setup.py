@@ -27,7 +27,7 @@ if __name__ == "__main__":
             "flatdict~=3.4",
         ],
         extras_require={
-            "testing": ["pytest", "pytest-cov", "pytest-pylint"]
+            "testing": ["pytest", "pytest-cov", "pytest-pylint", "black"]
         },
         python_requires=">=3.6.1",
         zip_safe=False,

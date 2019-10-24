@@ -50,9 +50,7 @@ def extension_from_path(path: Union[str, List[str]]) -> str:
     return extension.lower()[1:]  # skip first char, which is a dot
 
 
-def make_paths_relative(
-    yaml_dirname: str, cfg_dict: Dict, path_keys: List[str] = None
-):
+def make_paths_relative(yaml_dirname: str, cfg_dict: Dict, path_keys: List[str] = None):
     """Helper method to convert file system paths relative to the yaml config file,
     to paths relative to the current path.
 

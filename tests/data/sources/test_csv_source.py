@@ -19,16 +19,16 @@ class CsvDatasourceTest(DaskSupportTest):
         tmpfile = tempfile.mkdtemp()
         store_dataset(datasource.to_bag(), dict(path=tmpfile))
 
-        stored_dataset = DataSource(
-            format="json", path=os.path.join(tmpfile, "*.part"))
+        stored_dataset = DataSource(format="json", path=os.path.join(tmpfile, "*.part"))
 
         stored = stored_dataset.to_bag().compute()
         read = datasource.to_bag().compute()
 
         assert len(stored) == len(read)
 
-        def drop_keys(data, keys): return {
-            k: v for k, v in data.items() if k not in keys}
+        def drop_keys(data, keys):
+            return {k: v for k, v in data.items() if k not in keys}
+
         variable_keys = ["resource", "id"]
 
         for a, b in zip(read, stored):

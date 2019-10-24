@@ -32,11 +32,14 @@ class ElasticsearchReaderTest(DaskSupportTest):
             [dict(a=i, b=f"this is {i}") for i in range(1, 5000)],
             host=ES_HOST,
             index=ES_INDEX,
-            doc=ES_DOC
+            doc=ES_DOC,
         )
 
         es_index = from_elasticsearch(
-            npartitions=NPARTITIONS, client_kwargs={"hosts": ES_HOST}, index=ES_INDEX, doc_type=ES_DOC
+            npartitions=NPARTITIONS,
+            client_kwargs={"hosts": ES_HOST},
+            index=ES_INDEX,
+            doc_type=ES_DOC,
         )
 
         self.assertTrue(
@@ -46,5 +49,4 @@ class ElasticsearchReaderTest(DaskSupportTest):
         self.assertTrue(
             es_index.npartitions == NPARTITIONS, "Wrong number of partitions"
         )
-        self.assertTrue("id" not in es_index.columns.values,
-                        "Expected id as index")
+        self.assertTrue("id" not in es_index.columns.values, "Expected id as index")

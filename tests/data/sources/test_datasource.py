@@ -55,16 +55,12 @@ class DataSourceTest(DaskSupportTest):
             self.assertIn("tokens", bag)
 
     def test_no_mapping(self):
-        for ds in [
-            DataSource(
-                format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
-            ),
-            DataSource(source=os.path.join(FILES_PATH, "dataset_source.jsonl")),
-        ]:
 
-            self.assertTrue(
-                ds.to_mapped_dataframe().compute().equals(ds.to_dataframe().compute())
-            )
+        ds = DataSource(
+            format="json", path=os.path.join(FILES_PATH, "dataset_source.jsonl")
+        )
+        with pytest.raises(ValueError):
+            ds.to_mapped_dataframe()
 
     def test_load_multiple_formats(self):
         files = [

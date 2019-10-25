@@ -1,22 +1,23 @@
 import logging
 import os.path
-from typing import Dict, Callable, Any, Union, List, Optional, Tuple
 import warnings
+from typing import Dict, Callable, Any, Union, List, Optional, Tuple
 
 import yaml
 from dask.bag import Bag
 from dask.dataframe import DataFrame
 
-from biome.data.sources.readers import (
+from .readers import (
+    ID,
+    RESOURCE,
+    PATH_COLUMN_NAME,
     from_csv,
     from_json,
     from_excel,
-    from_elasticsearch,
     from_parquet,
+    ElasticsearchDataFrameReader,
 )
-from biome.data.sources.utils import make_paths_relative
-
-from .utils import row2dict
+from .utils import make_paths_relative
 
 
 class DataSource:
@@ -52,7 +53,10 @@ class DataSource:
         "json-l": (from_json, dict()),
         "parquet": (from_parquet, dict()),
         # No file system based readers
-        "elasticsearch": (from_elasticsearch, dict()),
+        ElasticsearchDataFrameReader.SOURCE_TYPE: (
+            ElasticsearchDataFrameReader.read,
+            dict(),
+        ),
     }
     # maps the supported formats to the corresponding "source readers"
 
@@ -80,14 +84,13 @@ class DataSource:
 
         source_reader, defaults = self._find_reader(format)
         reader_arguments = {**defaults, **kwargs, **attributes}
-        # TODO this should be managed by an FileSystemDataSourceReader class or something like that,
-        #  but we just check non file-based formats to keep backward compatibility
-        if source and format not in ["elasticsearch"]:
-            df = source_reader(path=source, **reader_arguments).dropna(how="all")
-        else:
-            df = source_reader(**reader_arguments).dropna(how="all")
 
-        df = df.rename(
+        df = (
+            source_reader(source, **reader_arguments)
+            if source
+            else source_reader(**reader_arguments)
+        )
+        df = df.dropna(how="all").rename(
             columns={column: column.strip() for column in df.columns.astype(str).values}
         )
         # TODO allow disable index reindex
@@ -129,7 +132,7 @@ class DataSource:
         """
         dict_keys = [str(column).strip() for column in self._df.columns]
 
-        return self._df.to_bag(index=True).map(row2dict, columns=dict_keys)
+        return self._df.to_bag(index=True).map(self._row2dict, columns=dict_keys)
 
     def to_mapped_bag(self) -> Bag:
         """Turns the mapped DataFrame of the data source into a `dask.Bag` of dictionaries, one dict for each row.
@@ -142,7 +145,7 @@ class DataSource:
         """
         mapped_df = self.to_mapped_dataframe()
         dict_keys = [str(column).strip() for column in mapped_df.columns]
-        return mapped_df.to_bag(index=True).map(row2dict, columns=dict_keys)
+        return mapped_df.to_bag(index=True).map(self._row2dict, columns=dict_keys)
 
     def to_dataframe(self) -> DataFrame:
         """Returns the underlying DataFrame of the data source"""
@@ -178,13 +181,34 @@ class DataSource:
 
         return mapped_dataframe
 
-    def _to_dict_or_str(self, value: "pandas.Series") -> Union[Dict, str]:
+    @staticmethod
+    def _to_dict_or_str(value: "pandas.Series") -> Union[Dict, str]:
         """Transform a `pandas.Series` of strings to a dict or a str, depending on its length.
         Also applies a strip() to the strings."""
         if len(value) > 1:
             return value.to_dict()
         else:
             return str(value.iloc[0])
+
+    @staticmethod
+    def _row2dict(
+        row: Tuple, columns: List[str], default_path: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """ Convert a pandas row into a dict object """
+        id = row[0]
+        data = row[1:]
+
+        # For duplicated column names, pandas append a index prefix with dots '.' We prevent
+        # index failures by replacing for '_'
+        sanitized_columns = [column.replace(".", "_") for column in columns]
+        data = dict([(ID, id)] + list(zip(sanitized_columns, data)))
+
+        # DataFrame.read_csv allows include path column called `path`
+        data[RESOURCE] = data.get(
+            RESOURCE, data.get(PATH_COLUMN_NAME, str(default_path))
+        )
+
+        return data
 
     @classmethod
     def from_yaml(cls: "DataSource", file_path: str) -> "DataSource":

@@ -1,20 +1,49 @@
 import glob
 import logging
 from glob import glob
-from typing import Dict, Optional, Union, List
+from typing import Optional, Union, List
+from urllib.parse import urlparse
 
+import dask
 import dask.dataframe as dd
-import flatdict
 import pandas as pd
 from dask import delayed
-from elasticsearch import Elasticsearch
-from elasticsearch.helpers import scan
+from dask_elk.client import DaskElasticClient
 
-from biome.data.sources.utils import flatten_dataframe
+from biome.data.sources.utils import flatten_dataframe, flatten_dask_dataframe
 
-_logger = logging.getLogger(__name__)
+ID = "id"
+RESOURCE = "resource"
+PATH_COLUMN_NAME = "path"
+
+
+_logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 # TODO: The idea is to make the readers a class and define a metaclass that they have to follow.
-#       For now, all reader methods have to return a dask.DataFrame
+#       For now, all reader methods have to return a dask.DataFrame. See ElasticsearchDataFrameReader
+
+
+class DataFrameReader:
+    """A base class for read :class:dask.dataframe.DataFrame
+    """
+
+    @classmethod
+    def read(cls, source: Union[str, List[str]], **kwargs) -> dask.dataframe.DataFrame:
+        """
+        Base class method for read the DataSources as a :class:dask.dataframe.DataFrame
+
+        Parameters
+        ----------
+        source: The source information.
+        kwargs: extra arguments passed to read method. Each reader should declare needed arguments
+
+        Returns
+        -------
+
+        A :class:dask.dataframe.DataFrame read from source
+
+        """
+
+        raise NotImplementedError
 
 
 def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
@@ -34,7 +63,7 @@ def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
         A `dask.DataFrame`
 
     """
-    return dd.read_csv(path, include_path_column=True, **params)
+    return dd.read_csv(path, include_path_column=PATH_COLUMN_NAME, **params)
 
 
 def from_json(
@@ -67,7 +96,7 @@ def from_json(
     dds = []
     for path_name in path_list:
         ddf = dd.read_json(path_name, flatten=flatten, engine=json_engine, **params)
-        ddf["path"] = path_name
+        ddf[PATH_COLUMN_NAME] = path_name
         dds.append(ddf)
 
     return dd.concat(dds)
@@ -93,8 +122,8 @@ def from_parquet(path: Union[str, List[str]], **params) -> dd.DataFrame:
 
     dds = []
     for path_name in path_list:
-        ddf = dd.read_parquet(path_name, **params, engine="pyarrow")
-        ddf["path"] = path_name
+        ddf = dd.read_parquet(path_name, engine="pyarrow", **params)
+        ddf[PATH_COLUMN_NAME] = path_name
         dds.append(ddf)
 
     return dd.concat(dds)
@@ -122,7 +151,7 @@ def from_excel(path: Union[str, List[str]], **params) -> dd.DataFrame:
     for path_name in path_list:
         parts = delayed(pd.read_excel)(path_name, **params)
         df = dd.from_delayed(parts).fillna("")
-        df["path"] = path_name
+        df[PATH_COLUMN_NAME] = path_name
         dds.append(df)
 
     return dd.concat(dds)
@@ -150,83 +179,65 @@ def _get_file_paths(paths: Union[str, List[str]]) -> List[str]:
     return [path for sublist in path_lists for path in sublist]
 
 
-def from_elasticsearch(
-    query: Optional[Dict] = None,
-    npartitions: int = 2,
-    client_cls: Optional = None,
-    client_kwargs=None,
-    **kwargs,
-) -> dd.DataFrame:
-    """Reads documents from Elasticsearch.
-
-    By default, documents are sorted by ``_doc``. For more information see the
-    scrolling section in Elasticsearch documentation.
-
-    Parameters
-    ----------
-    query : dict, optional
-        Search query.
-    npartitions : int, optional
-        Number of partitions, default is 2.
-    client_cls : elasticsearch.Elasticsearch, optional
-        Elasticsearch client class.
-    client_kwargs : dict, optional
-        Elasticsearch client parameters.
-    **params
-        Additional keyword arguments are passed to the the
-        ``elasticsearch.helpers.scan`` function.
-
-    Returns
-    -------
-    out : List[Delayed]
-        A list of ``dask.Delayed`` objects.
-
-    Examples
-    --------
-
-    Get all documents in elasticsearch.
-    >>> docs = from_elasticsearch()
-
-    Get documents matching a given query.
-    >>> query = {"query": {"match_all": {}}}
-    >>> docs = from_elasticsearch(query, index="myindex", doc_type="stuff")
-
+class ElasticsearchDataFrameReader(DataFrameReader):
+    """
+        Read a :class:dask.dataframe.DataFrame from a elasticsearch index
     """
 
-    if npartitions < 2:
-        _logger.warning(
-            "A minium of 2 partitions is needed for elasticsearch scan slices....Setting partitions number to 2"
-        )
-        npartitions = 2
+    SOURCE_TYPE = "elasticsearch"
+    __ELASTIC_ID_FIELD = "_id"
 
-    query = query or {}
-    # Sorting by _doc is preferred for scrolling.
-    query.setdefault("sort", ["_doc"])
-    if client_cls is None:
-        client_cls = Elasticsearch
-    # We load documents in parallel using the scrolling + slicing feature.
-    index_scan = [
-        delayed(_elasticsearch_scan)(client_cls, client_kwargs, **scan_kwargs)
-        for scan_kwargs in [
-            dict(kwargs, query=dict(query, slice=slice))
-            for slice in [{"id": idx, "max": npartitions} for idx in range(npartitions)]
-        ]
-    ]
+    @classmethod
+    def read(
+        cls,
+        source: Union[str, List[str]],
+        index: str,
+        doc_type: str = "_doc",
+        query: Optional[dict] = None,
+        es_host: str = "http://localhost:9200",
+        flatten_content: bool = False,
+        **kwargs,
+    ) -> dask.dataframe.DataFrame:
+        """
+        Creates a :class:dask.dataframe.DataFrame from a elasticsearch indexes
 
-    return dd.from_delayed(index_scan)
+        Parameters
+        ----------
+        source
+            The source param must match with :class:ElasticsearchDataFrameReader.SOURCE_TYPE
+        es_host
+            The elasticsearch host url (default to "http://localhost:9200")
+        index
+            The elasticsearch index
+        doc_type
+            The elasticsearch document type (default to "_doc")
+        query
+            The index query applied for extract the data
+        flatten_content
+            If True, applies a flatten to all nested data. It may take time to apply this flatten, so
+            is deactivate by default.
+        kwargs
+            Extra arguments passed to base search method
 
+        Returns
+        -------
+        A :class:dask.dataframe.DataFrame with index query results
 
-def _elasticsearch_scan(client_cls, client_kwargs, **params) -> pd.DataFrame:
-    def map_to_source(x: Dict) -> Dict:
-        flat = flatdict.FlatDict(
-            {**x["_source"], **dict(id=x["_id"], resource=x["_index"])}, delimiter="."
-        )
-        return dict(flat)
+        """
+        if source != cls.SOURCE_TYPE:
+            raise TypeError(f"{source} is not processable with {cls.__class__} reader")
 
-    # This method is executed in the worker's process and here we instantiate
-    # the ES client as it cannot be serialized.
-    # TODO check empty DataFrame
-    client = client_cls(**(client_kwargs or {}))
-    df = pd.DataFrame((map_to_source(document) for document in scan(client, **params)))
+        url = urlparse(es_host)
+        client = DaskElasticClient(host=url.hostname, port=url.port, wan_only=True)
+        df = client.read(
+            query=query, index=index, doc_type=doc_type, **kwargs
+        ).persist()
 
-    return df.set_index("id") if not df.empty else df
+        if flatten_content:
+            df = flatten_dask_dataframe(df)
+        df[RESOURCE] = f"{index}/{doc_type}"
+
+        if cls.__ELASTIC_ID_FIELD in df.columns:
+            df = df.rename(columns={cls.__ELASTIC_ID_FIELD: ID})
+
+        return df

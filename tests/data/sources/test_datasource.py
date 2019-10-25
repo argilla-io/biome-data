@@ -17,7 +17,7 @@ class DataSourceTest(DaskSupportTest):
             DataSource(source="not-found")
 
     def test_add_mock_format(self):
-        def ds_parser(**kwargs):
+        def ds_parser(*args, **kwargs):
             from dask import dataframe as ddf
             import pandas as pd
 

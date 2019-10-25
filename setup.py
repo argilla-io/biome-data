@@ -21,6 +21,7 @@ if __name__ == "__main__":
             "pyarrow~=0.14",
             "ujson~=1.35",
             "pandas~=0.25.0",
+            "elasticsearch<7.0",  # latest version doesn't work with dask-elk module
             "dask-elk~=0.2.0",
             "bokeh~=1.3",
             "xlrd~=1.2",

@@ -12,7 +12,7 @@ ES_DOC = os.getenv("ES_DOC", "_doc")
 
 
 class ElasticsearchReaderTest(DaskSupportTest):
-    def load_data_to_elasticsearch(self, data, host: str, index: str, doc:str):
+    def load_data_to_elasticsearch(self, data, host: str, index: str, doc: str):
         from elasticsearch import Elasticsearch
         from elasticsearch import helpers
 
@@ -32,11 +32,14 @@ class ElasticsearchReaderTest(DaskSupportTest):
             [dict(a=i, b=f"this is {i}") for i in range(1, 5000)],
             host=ES_HOST,
             index=ES_INDEX,
-            doc=ES_DOC
+            doc=ES_DOC,
         )
 
         es_index = from_elasticsearch(
-            npartitions=NPARTITIONS, client_kwargs={"hosts": ES_HOST}, index=ES_INDEX, doc_type=ES_DOC
+            npartitions=NPARTITIONS,
+            client_kwargs={"hosts": ES_HOST},
+            index=ES_INDEX,
+            doc_type=ES_DOC,
         )
 
         self.assertTrue(

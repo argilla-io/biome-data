@@ -1,3 +1,5 @@
+from biome.data.sinks.helpers import store_dataset
+from biome.data.sources import DataSource
 import os
 import tempfile
 
@@ -5,9 +7,6 @@ from tests import TESTS_BASEPATH
 from tests.test_support import DaskSupportTest
 
 FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")
-
-from biome.data.sources import DataSource
-from biome.data.sinks.helpers import store_dataset
 
 
 class ExcelDatasourceTest(DaskSupportTest):

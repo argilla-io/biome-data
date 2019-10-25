@@ -1,3 +1,5 @@
+from biome.data.sinks.helpers import store_dataset
+from biome.data.sources import DataSource
 import json
 import os
 import tempfile
@@ -6,9 +8,6 @@ from tests import TESTS_BASEPATH
 from tests.test_support import DaskSupportTest
 
 FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")
-
-from biome.data.sources import DataSource
-from biome.data.sinks.helpers import store_dataset
 
 
 class CsvDatasourceTest(DaskSupportTest):
@@ -27,7 +26,9 @@ class CsvDatasourceTest(DaskSupportTest):
 
         assert len(stored) == len(read)
 
-        drop_keys = lambda data, keys: {k: v for k, v in data.items() if k not in keys}
+        def drop_keys(data, keys):
+            return {k: v for k, v in data.items() if k not in keys}
+
         variable_keys = ["resource", "id"]
 
         for a, b in zip(read, stored):

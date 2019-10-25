@@ -26,7 +26,9 @@ class JsonDatasourceTest(DaskSupportTest):
 
         assert len(stored) == len(read)
 
-        drop_keys = lambda data, keys: {k: v for k, v in data.items() if k not in keys}
+        def drop_keys(data, keys):
+            return {k: v for k, v in data.items() if k not in keys}
+
         variable_keys = ["resource", "id"]
 
         for a, b in zip(read, stored):

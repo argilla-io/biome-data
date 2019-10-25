@@ -1,31 +1,8 @@
-from typing import Tuple, List, Optional, Dict, Any, Union
 import os.path
+from typing import Tuple, List, Optional, Dict, Union
+
+from dask import dataframe as ddf
 import pandas as pd
-
-ID = "id"
-RESOURCE = "resource"
-
-_DASK_PATH_COLUMN_NAME = "path"
-
-
-def row2dict(
-    row: Tuple, columns: List[str], default_path: Optional[str] = None
-) -> Dict[str, Any]:
-    """ Convert a pandas row into a dict object """
-    id = row[0]
-    data = row[1:]
-
-    # For duplicated column names, pandas append a index prefix with dots '.' We prevent
-    # index failures by replacing for '_'
-    sanitized_columns = [column.replace(".", "_") for column in columns]
-    data = dict([(ID, id)] + list(zip(sanitized_columns, data)))
-
-    # DataFrame.read_csv allows include path column called `path`
-    data[RESOURCE] = data.get(
-        RESOURCE, data.get(_DASK_PATH_COLUMN_NAME, str(default_path))
-    )
-
-    return data
 
 
 def extension_from_path(path: Union[str, List[str]]) -> str:
@@ -163,22 +140,64 @@ def _columns_analysis(df: pd.DataFrame) -> Tuple[List[str], List[str], List[str]
     return dicts, lists, unmodified
 
 
-def flatten_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    c_dicts, c_lists, c_unmodified = _columns_analysis(df)
+def flatten_dask_dataframe(dataframe: ddf.DataFrame) -> ddf.DataFrame:
+    """
+    Flatten an dataframe adding nested values as new columns
+    and dropping the old ones
+    Parameters
+    ----------
+    dataframe
+        The original dask DataFrame
 
-    if len(df.columns) == len(c_unmodified):
+    Returns
+    -------
+
+    A new Dataframe with flatten content
+
+    """
+    # We must materialize some data for compound the new flatten DataFrame
+    meta_flatten = flatten_dataframe(dataframe.head(1))
+
+    def _flatten_stage(df: pd.DataFrame) -> pd.DataFrame:
+        new_df = flatten_dataframe(df)
+        for column in new_df.columns:
+            # we append the new columns to the original dataframe
+            df[column] = new_df[column]
+
+        return df
+
+    dataframe = dataframe.map_partitions(
+        _flatten_stage,
+        meta={**dataframe.dtypes.to_dict(), **meta_flatten.dtypes.to_dict()},
+    )
+    return dataframe[meta_flatten.columns]
+
+
+def flatten_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    dict_columns, list_columns, unmodified_columns = _columns_analysis(df)
+
+    if len(df.columns) == len(unmodified_columns):
         return df
 
     dfs = []
-    for c in c_lists:
-        c_df = pd.DataFrame([d for d in df[c].apply(_dict_to_list) if d])
-        c_df.columns = [f"{c}.*.{cc}" for cc in c_df.columns]
-        dfs.append(c_df)
+    for column in list_columns:
+        column_df = pd.DataFrame(
+            data=[data for data in df[column].apply(_dict_to_list) if data],
+            index=df.index,
+        )
+        column_df.columns = [
+            f"{column}.*.{column_df_column}" for column_df_column in column_df.columns
+        ]
+        dfs.append(column_df)
 
-    for c in c_dicts:
-        c_df = pd.DataFrame([md if md else {} for md in df[c]])
-        c_df.columns = [f"{c}.{cc}" for cc in c_df.columns]
-        dfs.append(c_df)
+    for column in dict_columns:
+        column_df = pd.DataFrame(
+            data=[data if data else {} for data in df[column]], index=df.index
+        )
+        column_df.columns = [
+            f"{column}.{column_df_column}" for column_df_column in column_df.columns
+        ]
+        dfs.append(column_df)
 
     flatten = flatten_dataframe(pd.concat(dfs, axis=1))
-    return pd.concat([df[c_unmodified], flatten], axis=1)
+    return pd.concat([df[unmodified_columns], flatten], axis=1)

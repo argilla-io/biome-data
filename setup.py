@@ -21,14 +21,12 @@ if __name__ == "__main__":
             "pyarrow~=0.14",
             "ujson~=1.35",
             "pandas~=0.25.0",
-            "elasticsearch~=6.0",
+            "dask-elk~=0.2.0",
             "bokeh~=1.3",
             "xlrd~=1.2",
             "flatdict~=3.4",
         ],
-        extras_require={
-            "testing": ["pytest", "pytest-cov", "pytest-pylint", "black"]
-        },
+        extras_require={"testing": ["pytest", "pytest-cov", "pytest-pylint", "black"]},
         python_requires=">=3.6.1",
         zip_safe=False,
     )

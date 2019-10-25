@@ -14,7 +14,7 @@ from biome.data.sources.utils import flatten_dataframe, flatten_dask_dataframe
 
 ID = "id"
 RESOURCE = "resource"
-PATH_COLUM_NAME = "path"
+PATH_COLUMN_NAME = "path"
 
 
 _logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -63,7 +63,7 @@ def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
         A `dask.DataFrame`
 
     """
-    return dd.read_csv(path, include_path_column=True, **params)
+    return dd.read_csv(path, include_path_column=PATH_COLUMN_NAME, **params)
 
 
 def from_json(
@@ -96,7 +96,7 @@ def from_json(
     dds = []
     for path_name in path_list:
         ddf = dd.read_json(path_name, flatten=flatten, engine=json_engine, **params)
-        ddf[PATH_COLUM_NAME] = path_name
+        ddf[PATH_COLUMN_NAME] = path_name
         dds.append(ddf)
 
     return dd.concat(dds)
@@ -123,7 +123,7 @@ def from_parquet(path: Union[str, List[str]], **params) -> dd.DataFrame:
     dds = []
     for path_name in path_list:
         ddf = dd.read_parquet(path_name, engine="pyarrow", **params)
-        ddf[PATH_COLUM_NAME] = path_name
+        ddf[PATH_COLUMN_NAME] = path_name
         dds.append(ddf)
 
     return dd.concat(dds)
@@ -151,7 +151,7 @@ def from_excel(path: Union[str, List[str]], **params) -> dd.DataFrame:
     for path_name in path_list:
         parts = delayed(pd.read_excel)(path_name, **params)
         df = dd.from_delayed(parts).fillna("")
-        df[PATH_COLUM_NAME] = path_name
+        df[PATH_COLUMN_NAME] = path_name
         dds.append(df)
 
     return dd.concat(dds)

@@ -10,7 +10,7 @@ from dask.dataframe import DataFrame
 from .readers import (
     ID,
     RESOURCE,
-    PATH_COLUM_NAME,
+    PATH_COLUMN_NAME,
     from_csv,
     from_json,
     from_excel,
@@ -205,7 +205,7 @@ class DataSource:
 
         # DataFrame.read_csv allows include path column called `path`
         data[RESOURCE] = data.get(
-            RESOURCE, data.get(PATH_COLUM_NAME, str(default_path))
+            RESOURCE, data.get(PATH_COLUMN_NAME, str(default_path))
         )
 
         return data

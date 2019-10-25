@@ -2,42 +2,42 @@ import os
 
 from dask.dataframe import DataFrame
 
-from biome.data.sources.readers import from_elasticsearch
+from biome.data.sources.readers import ElasticsearchDataFrameReader
 from tests.test_support import DaskSupportTest
 
-NPARTITIONS = 3
 ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
 ES_INDEX = os.getenv("ES_INDEX", "test-index")
 ES_DOC = os.getenv("ES_DOC", "_doc")
 
 
 class ElasticsearchReaderTest(DaskSupportTest):
-    def load_data_to_elasticsearch(self, data, host: str, index: str, doc: str):
+    @staticmethod
+    def _load_data_to_elasticsearch(data, host: str, index: str, doc: str):
         from elasticsearch import Elasticsearch
         from elasticsearch import helpers
 
         client = Elasticsearch(hosts=host, http_compress=True)
         client.indices.delete(index, ignore_unavailable=True)
 
-        def generator(data):
+        def _generator(data):
             for document in data:
                 yield {"_index": index, "_type": doc, "_source": document}
 
-        helpers.bulk(client, generator(data))
+        helpers.bulk(client, _generator(data))
         del client
 
     def test_load_data(self):
 
-        self.load_data_to_elasticsearch(
+        self._load_data_to_elasticsearch(
             [dict(a=i, b=f"this is {i}") for i in range(1, 5000)],
             host=ES_HOST,
             index=ES_INDEX,
             doc=ES_DOC,
         )
 
-        es_index = from_elasticsearch(
-            npartitions=NPARTITIONS,
-            client_kwargs={"hosts": ES_HOST},
+        es_index = ElasticsearchDataFrameReader.read(
+            source=ElasticsearchDataFrameReader.SOURCE_TYPE,
+            es_host=ES_HOST,
             index=ES_INDEX,
             doc_type=ES_DOC,
         )
@@ -46,7 +46,8 @@ class ElasticsearchReaderTest(DaskSupportTest):
             isinstance(es_index, DataFrame),
             f"elasticsearch datasource is not a dataframe :{type(es_index)}",
         )
+        print(es_index.columns)
         self.assertTrue(
-            es_index.npartitions == NPARTITIONS, "Wrong number of partitions"
+            "_id" not in es_index.columns and "id" in es_index.columns,
+            "Expected renamed elasticsearch id",
         )
-        self.assertTrue("id" not in es_index.columns.values, "Expected id as index")

@@ -174,13 +174,13 @@ class DataSource:
                 data_features = [data_features]
 
             try:
-                mapped_dataframe[parameter_name] = self._df.loc[:, data_features].apply(
+                mapped_dataframe[parameter_name] = self._df[data_features].apply(
                     self._to_dict_or_any, axis=1, meta=(None, "object")
                 )
             except KeyError as e:
                 raise KeyError(e, f"Did not find {data_features} in the data source!")
 
-        return mapped_dataframe.loc[:, list(self.mapping.keys())]
+        return mapped_dataframe[list(self.mapping.keys())]
 
     @staticmethod
     def _to_dict_or_any(value: dd.Series) -> Union[Dict, Any]:

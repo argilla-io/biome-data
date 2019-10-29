@@ -5,7 +5,7 @@ from typing import Dict, Callable, Any, Union, List, Optional, Tuple
 
 import yaml
 from dask.bag import Bag
-from dask.dataframe import DataFrame
+import dask.dataframe as dd
 
 from .readers import (
     ID,
@@ -23,7 +23,7 @@ from .utils import make_paths_relative
 class DataSource:
     """This class takes care of reading the data source, usually specified in a yaml file.
 
-    It uses the *source readers* to extract a `dask.DataFrame`.
+    It uses the *source readers* to extract a dask DataFrame.
 
     Parameters
     ----------
@@ -147,48 +147,48 @@ class DataSource:
         dict_keys = [str(column).strip() for column in mapped_df.columns]
         return mapped_df.to_bag(index=True).map(self._row2dict, columns=dict_keys)
 
-    def to_dataframe(self) -> DataFrame:
+    def to_dataframe(self) -> dd.DataFrame:
         """Returns the underlying DataFrame of the data source"""
         return self._df
 
-    def to_mapped_dataframe(self) -> DataFrame:
-        """
-        Adds columns to the DataFrame that are named after the parameter names in the DatasetReader's `text_to_instance`
-        method. The content of these columns is specified in the mapping dictionary.
+    def to_mapped_dataframe(self) -> dd.DataFrame:
+        """The columns of this DataFrame are named after the mapping keys, which in turn should match
+        the parameter names in the DatasetReader's `text_to_instance` method.
+        The content of these columns is specified in the mapping dictionary.
 
         Returns
         -------
         mapped_dataframe
-            Contains additional columns corresponding to the parameter names
-            of the DatasetReader's `text_to_instance` method.
+            Contains columns corresponding to the parameter names of the DatasetReader's `text_to_instance` method.
         """
+        if not self.mapping:
+            raise ValueError("For a mapped DataFrame you need to specify a mapping!")
+
         # This is strictly a shallow copy of the underlying computational graph
         mapped_dataframe = self._df.copy()
 
         for parameter_name, data_features in self.mapping.items():
             # convert to list, otherwise the axis=1 raises an error with the returned pd.Series in the try statement
-            # if no header is present, the column names are ints
+            # if no header is present in the source data, the column names are ints
             if isinstance(data_features, (str, int)):
                 data_features = [data_features]
 
             try:
-                mapped_dataframe[parameter_name] = mapped_dataframe.loc[
-                    :, data_features
-                ].apply(self._to_dict_or_str, axis=1, meta=(parameter_name, "object"))
+                mapped_dataframe[parameter_name] = self._df[data_features].apply(
+                    self._to_dict_or_any, axis=1, meta=(None, "object")
+                )
             except KeyError as e:
                 raise KeyError(e, f"Did not find {data_features} in the data source!")
-            # if the data source df already has a parameter_name column, it will be replaced!
 
-        return mapped_dataframe
+        return mapped_dataframe[list(self.mapping.keys())]
 
     @staticmethod
-    def _to_dict_or_str(value: "pandas.Series") -> Union[Dict, str]:
-        """Transform a `pandas.Series` of strings to a dict or a str, depending on its length.
-        Also applies a strip() to the strings."""
+    def _to_dict_or_any(value: dd.Series) -> Union[Dict, Any]:
+        """Transform a `dask.dataframe.Series` to a dict or a single value, depending on its length."""
         if len(value) > 1:
             return value.to_dict()
         else:
-            return str(value.iloc[0])
+            return value.iloc[0]
 
     @staticmethod
     def _row2dict(

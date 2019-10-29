@@ -184,7 +184,7 @@ class DataSource:
 
     @staticmethod
     def _to_dict_or_any(value: dd.Series) -> Union[Dict, Any]:
-        """Transform a `dask.dataframe.Series` of strings to a dict or a str, depending on its length."""
+        """Transform a `dask.dataframe.Series` to a dict or a single value, depending on its length."""
         if len(value) > 1:
             return value.to_dict()
         else:

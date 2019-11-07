@@ -76,6 +76,7 @@ class DataSource:
                 DeprecationWarning,
             )
 
+        self._source = source
         self._attributes = attributes or {}
         kwargs = kwargs or {}
 

@@ -76,15 +76,15 @@ class DataSource:
                 DeprecationWarning,
             )
 
-        self._source = source
-        self._attributes = attributes or {}
+        self.source = source
+        self.attributes = attributes or {}
         kwargs = kwargs or {}
 
         if not format and source:
             format = self.__format_from_source(source)
 
         source_reader, defaults = self._find_reader(format)
-        reader_arguments = {**defaults, **kwargs, **self._attributes}
+        reader_arguments = {**defaults, **kwargs, **self.attributes}
 
         df = (
             source_reader(source, **reader_arguments)
@@ -99,7 +99,7 @@ class DataSource:
             df = df.set_index("id")
 
         self._df = df
-        self._mapping = mapping or {}
+        self.mapping = mapping or {}
 
     @classmethod
     def add_supported_format(
@@ -162,13 +162,13 @@ class DataSource:
         mapped_dataframe
             Contains columns corresponding to the parameter names of the DatasetReader's `text_to_instance` method.
         """
-        if not self._mapping:
+        if not self.mapping:
             raise ValueError("For a mapped DataFrame you need to specify a mapping!")
 
         # This is strictly a shallow copy of the underlying computational graph
         mapped_dataframe = self._df.copy()
 
-        for parameter_name, data_features in self._mapping.items():
+        for parameter_name, data_features in self.mapping.items():
             # convert to list, otherwise the axis=1 raises an error with the returned pd.Series in the try statement
             # if no header is present in the source data, the column names are ints
             if isinstance(data_features, (str, int)):
@@ -181,7 +181,7 @@ class DataSource:
             except KeyError as e:
                 raise KeyError(e, f"Did not find {data_features} in the data source!")
 
-        return mapped_dataframe[list(self._mapping.keys())]
+        return mapped_dataframe[list(self.mapping.keys())]
 
     @staticmethod
     def _to_dict_or_any(value: dd.Series) -> Union[Dict, Any]:

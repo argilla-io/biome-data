@@ -98,7 +98,7 @@ class DataSource:
             df = df.set_index("id")
 
         self._df = df
-        self.mapping = mapping or {}
+        self._mapping = mapping or {}
 
     @classmethod
     def add_supported_format(
@@ -161,13 +161,13 @@ class DataSource:
         mapped_dataframe
             Contains columns corresponding to the parameter names of the DatasetReader's `text_to_instance` method.
         """
-        if not self.mapping:
+        if not self._mapping:
             raise ValueError("For a mapped DataFrame you need to specify a mapping!")
 
         # This is strictly a shallow copy of the underlying computational graph
         mapped_dataframe = self._df.copy()
 
-        for parameter_name, data_features in self.mapping.items():
+        for parameter_name, data_features in self._mapping.items():
             # convert to list, otherwise the axis=1 raises an error with the returned pd.Series in the try statement
             # if no header is present in the source data, the column names are ints
             if isinstance(data_features, (str, int)):
@@ -180,7 +180,7 @@ class DataSource:
             except KeyError as e:
                 raise KeyError(e, f"Did not find {data_features} in the data source!")
 
-        return mapped_dataframe[list(self.mapping.keys())]
+        return mapped_dataframe[list(self._mapping.keys())]
 
     @staticmethod
     def _to_dict_or_any(value: dd.Series) -> Union[Dict, Any]:

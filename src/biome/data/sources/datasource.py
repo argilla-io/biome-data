@@ -76,14 +76,14 @@ class DataSource:
                 DeprecationWarning,
             )
 
-        attributes = attributes or {}
+        self._attributes = attributes or {}
         kwargs = kwargs or {}
 
         if not format and source:
             format = self.__format_from_source(source)
 
         source_reader, defaults = self._find_reader(format)
-        reader_arguments = {**defaults, **kwargs, **attributes}
+        reader_arguments = {**defaults, **kwargs, **self._attributes}
 
         df = (
             source_reader(source, **reader_arguments)

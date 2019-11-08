@@ -1,8 +1,10 @@
 import os.path
 from typing import Tuple, List, Optional, Dict, Union
 
-from dask import dataframe as ddf
+import dask.dataframe as dd
 import pandas as pd
+
+import yaml
 
 
 def extension_from_path(path: Union[str, List[str]]) -> str:
@@ -140,7 +142,7 @@ def _columns_analysis(df: pd.DataFrame) -> Tuple[List[str], List[str], List[str]
     return dicts, lists, unmodified
 
 
-def flatten_dask_dataframe(dataframe: ddf.DataFrame) -> ddf.DataFrame:
+def flatten_dask_dataframe(dataframe: dd.DataFrame) -> dd.DataFrame:
     """
     Flatten an dataframe adding nested values as new columns
     and dropping the old ones
@@ -201,3 +203,34 @@ def flatten_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     flatten = flatten_dataframe(pd.concat(dfs, axis=1))
     return pd.concat([df[unmodified_columns], flatten], axis=1)
+
+
+def save_dict_as_yaml(dictionary: dict, path: str, create_dirs: bool = True) -> str:
+    """Save a cfg dict to path as yaml
+
+    Parameters
+    ----------
+    dictionary
+        Dictionary to be saved
+    path
+        Filesystem location where the yaml file will be saved
+    create_dirs
+        If true, create directories in path.
+        If false, throw exception if directories in path do not exist.
+
+    Returns
+    -------
+    path
+        Location of the yaml file
+    """
+    dir_name = os.path.dirname(path)
+    if not os.path.isdir(dir_name):
+        if not create_dirs:
+            raise NotADirectoryError(f"Path '{dir_name}' does not exist.")
+        os.makedirs(dir_name)
+
+    with open(path, "w") as yml_file:
+        yaml.dump(dictionary, yml_file, default_flow_style=False)
+
+    return path
+

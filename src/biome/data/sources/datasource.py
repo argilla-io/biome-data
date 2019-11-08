@@ -17,7 +17,7 @@ from .readers import (
     from_parquet,
     ElasticsearchDataFrameReader,
 )
-from .utils import make_paths_relative
+from .utils import make_paths_relative, save_dict_as_yaml
 
 
 class DataSource:
@@ -68,17 +68,17 @@ class DataSource:
         format: Optional[str] = None,
         **kwargs,
     ):
-
         if kwargs:
             warnings.warn(
                 "Passing keyword arguments is deprecated and will be disabled."
                 " Please, use attributes argument instead",
                 DeprecationWarning,
             )
+        kwargs = kwargs or {}
 
         self.source = source
         self.attributes = attributes or {}
-        kwargs = kwargs or {}
+        self.mapping = mapping or {}
 
         if not format and source:
             format = self.__format_from_source(source)
@@ -99,7 +99,6 @@ class DataSource:
             df = df.set_index("id")
 
         self._df = df
-        self.mapping = mapping or {}
 
     @classmethod
     def add_supported_format(
@@ -287,6 +286,47 @@ class DataSource:
                     "The 'metadata_file' functionality is deprecated, please modify your source file directly!"
                 )
         return mapping
+
+    def to_yaml(self, path: str, make_source_path_absolute: bool = False) -> str:
+        """Create a yaml config file for this data source.
+
+        Parameters
+        ----------
+        path
+            Path to the yaml file to be written.
+        make_source_path_absolute
+            If true, writes the source of the DataSource as an absolute path.
+
+        Returns
+        -------
+        path
+        """
+        source = self.source
+        if make_source_path_absolute:
+            source = os.path.abspath(source)
+
+        yaml_dict = {
+            "source": source,
+            "attributes": self.attributes,
+            "mapping": self.mapping,
+        }
+
+        return save_dict_as_yaml(yaml_dict, path)
+
+    def head(self, n: int = 10) -> "pandas.DataFrame":
+        """Allows for a peek into the data source showing the first n rows.
+
+        Parameters
+        ----------
+        n
+            Number of lines
+
+        Returns
+        -------
+        df
+            The first n lines as a `pandas.DataFrame`
+        """
+        return self._df.head(n=n)
 
     def _find_reader(self, source_format: str) -> Tuple[Callable, dict]:
         try:

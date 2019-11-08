@@ -17,7 +17,7 @@ from .readers import (
     from_parquet,
     ElasticsearchDataFrameReader,
 )
-from .utils import make_paths_relative
+from .utils import make_paths_relative, save_dict_as_yaml
 
 
 class DataSource:
@@ -287,6 +287,22 @@ class DataSource:
                     "The 'metadata_file' functionality is deprecated, please modify your source file directly!"
                 )
         return mapping
+
+    def to_yaml(self, path: str) -> str:
+        """Create a yaml config file for this data source.
+
+        Parameters
+        ----------
+        path
+            Path to the yaml file to be written.
+
+        Returns
+        -------
+        path
+        """
+        yaml_dict = {"source": self.source, "attributes": self.attributes, "mapping": self.mapping}
+
+        return save_dict_as_yaml(yaml_dict, path)
 
     def _find_reader(self, source_format: str) -> Tuple[Callable, dict]:
         try:

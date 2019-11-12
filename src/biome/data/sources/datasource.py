@@ -17,7 +17,7 @@ from .readers import (
     from_parquet,
     ElasticsearchDataFrameReader,
 )
-from .utils import make_paths_relative, save_dict_as_yaml
+from .utils import make_paths_relative, save_dict_as_yaml, is_relative_file_system_path
 
 
 class DataSource:
@@ -302,7 +302,7 @@ class DataSource:
         path
         """
         source = self.source
-        if make_source_path_absolute:
+        if make_source_path_absolute and is_relative_file_system_path(source):
             source = os.path.abspath(source)
 
         yaml_dict = {

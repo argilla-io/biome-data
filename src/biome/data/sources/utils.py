@@ -86,7 +86,9 @@ def is_relative_file_system_path(string: str) -> bool:
     if not extension_from_path(string):
         return False
     # check if a domain name
-    if string.lower().startswith(("http", "ftp")):
+    if string.lower().startswith(
+        ("http://", "https://", "ftp://", "sftp://", "s3://", "hdfs://", "gs://")
+    ):
         return False
     # check if an absolute path
     if os.path.isabs(string):
@@ -233,4 +235,3 @@ def save_dict_as_yaml(dictionary: dict, path: str, create_dirs: bool = True) -> 
         yaml.dump(dictionary, yml_file, default_flow_style=False)
 
     return path
-

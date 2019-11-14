@@ -36,7 +36,7 @@ class DataSource:
         Supported formats are listed as keys in the `SUPPORTED_FORMATS` dict of this class.
     mapping
         Used to map the features (columns) of the data source
-        to the parameters of the DatasetReader's `text_to_instance` method.
+        to the parameters of the DataSourceReader's `text_to_instance` method.
     kwargs
         Additional kwargs are passed on to the *source readers* that depend on the format.
         @Deprecated. Use `attributes` instead

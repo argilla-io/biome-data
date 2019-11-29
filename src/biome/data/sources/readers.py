@@ -1,10 +1,9 @@
-import glob
 import logging
+import os.path
 from glob import glob
 from typing import Optional, Union, List
 from urllib.parse import urlparse
 
-import dask
 import dask.dataframe as dd
 import pandas as pd
 from dask import delayed
@@ -16,7 +15,6 @@ ID = "id"
 RESOURCE = "resource"
 PATH_COLUMN_NAME = "path"
 
-
 _logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 # TODO: The idea is to make the readers a class and define a metaclass that they have to follow.
 #       For now, all reader methods have to return a dask.DataFrame. See ElasticsearchDataFrameReader
@@ -27,7 +25,7 @@ class DataFrameReader:
     """
 
     @classmethod
-    def read(cls, source: Union[str, List[str]], **kwargs) -> dask.dataframe.DataFrame:
+    def read(cls, source: Union[str, List[str]], **kwargs) -> dd.DataFrame:
         """
         Base class method for read the DataSources as a :class:dask.dataframe.DataFrame
 
@@ -47,7 +45,7 @@ class DataFrameReader:
 
 
 def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
-    """Creates a `dask.DataFrame` from one or several csv files.
+    """Creates a `dask.dataframe.DataFrame` from one or several csv files.
     Includes a "path column".
 
     Parameters
@@ -69,7 +67,7 @@ def from_csv(path: Union[str, List[str]], **params) -> dd.DataFrame:
 def from_json(
     path: Union[str, List[str]], flatten: bool = True, **params
 ) -> dd.DataFrame:
-    """Creates a `dask.DataFrame` from one or several json files.
+    """Creates a `dask.dataframe.DataFrame` from one or several json files.
     Includes a "path column".
 
     Parameters
@@ -103,7 +101,7 @@ def from_json(
 
 
 def from_parquet(path: Union[str, List[str]], **params) -> dd.DataFrame:
-    """Creates a `dask.DataFrame` from one or several parquet files.
+    """Creates a `dask.dataframe.DataFrame` from one or several parquet files.
     Includes a "path column".
 
     Parameters
@@ -116,9 +114,13 @@ def from_parquet(path: Union[str, List[str]], **params) -> dd.DataFrame:
     Returns
     -------
     df
-        A `dask.DataFrame`
+        A `dask.dataframe.DataFrame`
     """
     path_list = _get_file_paths(path)
+    # dask saves a parquet dataframe as a folder, this needs a special logic
+    # For now we do not support reading several dask parquet folders ...
+    if not path_list and os.path.isdir(path):
+        path_list = [path]
 
     dds = []
     for path_name in path_list:
@@ -130,7 +132,7 @@ def from_parquet(path: Union[str, List[str]], **params) -> dd.DataFrame:
 
 
 def from_excel(path: Union[str, List[str]], **params) -> dd.DataFrame:
-    """Creates a `dask.DataFrame` from one or several excel files.
+    """Creates a `dask.dataframe.DataFrame` from one or several excel files.
     Includes a "path column".
 
     Parameters
@@ -143,7 +145,7 @@ def from_excel(path: Union[str, List[str]], **params) -> dd.DataFrame:
     Returns
     -------
     df
-        A `dask.DataFrame`
+        A `dask.dataframe.DataFrame`
     """
     path_list = _get_file_paths(path)
 
@@ -197,7 +199,7 @@ class ElasticsearchDataFrameReader(DataFrameReader):
         es_host: str = "http://localhost:9200",
         flatten_content: bool = False,
         **kwargs,
-    ) -> dask.dataframe.DataFrame:
+    ) -> dd.DataFrame:
         """
         Creates a :class:dask.dataframe.DataFrame from a elasticsearch indexes
 

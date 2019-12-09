@@ -1,12 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os
+
 from setuptools import setup, find_packages
 
-if __name__ == "__main__":
 
+def about_info(package: str):
+    """Fetch about info """
+    root = os.path.abspath(os.path.dirname(__file__))
+    with open(
+        os.path.join(root, "src", package.replace("-", "/"), "about.py"),
+        encoding="utf8",
+    ) as f:
+        about = {}
+        exec(f.read(), about)
+        return about
+
+
+if __name__ == "__main__":
+    package_name = "biome-data"
+    about = about_info(package_name)
     setup(
-        version="0.1.dev",
-        name="biome-data",
+        version=about["__version__"],
+        name=package_name,
         description="Biome-data is a common module for data source manipulation",
         author="Recognai",
         author_email="francisco@recogn.ai",

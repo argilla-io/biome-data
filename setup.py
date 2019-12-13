@@ -42,6 +42,7 @@ if __name__ == "__main__":
             "bokeh~=1.3",
             "xlrd~=1.2",
             "flatdict~=3.4",
+            "python-dateutil<2.8.1",  # botocore (imported from allennlp) has this restriction
         ],
         extras_require={"testing": ["pytest", "pytest-cov", "pytest-pylint", "black"]},
         python_requires=">=3.6.1",

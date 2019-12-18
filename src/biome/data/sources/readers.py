@@ -171,7 +171,7 @@ def _get_file_paths(paths: Union[str, List[str]]) -> List[str]:
     """
     if isinstance(paths, str):
         path_list = glob(paths)
-        return path_list if path_list else paths
+        return path_list if path_list else [paths]
     path_lists = [_get_file_paths(path) for path in paths]
 
     # flatten the list of lists

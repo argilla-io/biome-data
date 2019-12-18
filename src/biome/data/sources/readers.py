@@ -116,12 +116,7 @@ def from_parquet(path: Union[str, List[str]], **params) -> dd.DataFrame:
     df
         A `dask.dataframe.DataFrame`
     """
-    # dask saves a parquet dataframe as a folder, this needs a special logic
-    # For now we do not support reading several dask parquet folders ...
-    if os.path.isdir(path):
-        path_list = [path]
-    else:
-        path_list = _get_file_paths(path)
+    path_list = _get_file_paths(path)
 
     dds = []
     for path_name in path_list:
@@ -175,8 +170,9 @@ def _get_file_paths(paths: Union[str, List[str]]) -> List[str]:
         A list of path names.
     """
     if isinstance(paths, str):
-        return glob(paths)
-    path_lists = [glob(path) for path in paths]
+        path_list = glob(paths)
+        return path_list if path_list else paths
+    path_lists = [_get_file_paths(path) for path in paths]
 
     # flatten the list of lists
     return [path for sublist in path_lists for path in sublist]

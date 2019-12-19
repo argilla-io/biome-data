@@ -6,6 +6,9 @@ services:
 python:
   - "3.6"
   - "3.7"
+
+before_install:
+  - echo "$RECOGNAI_PYPI_IP $RECOGNAI_PYPI_HOSTNAME" | sudo tee -a /etc/hosts
 # command to install dependencies
 install:
   - pip install -U pip

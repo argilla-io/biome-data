@@ -21,17 +21,12 @@ after_success:
   - pip install twine
 
 deploy:
-  - provider: script
-    script: twine upload dist/*
-    on:
-      branch: master
-  - provider: script
-      script: twine upload dist/*
-      on:
-        tag: true
-
-
-
+  provider: script
+  script: twine upload dist/*
+  on:
+    branch:
+      - master
+      - releases/*
 env:
   - ES_DOC=doc
 

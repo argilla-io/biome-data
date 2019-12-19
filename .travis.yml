@@ -1,7 +1,3 @@
-stages:
-  - name: after_success
-    if: branch = master
-
 language: python
 
 services:
@@ -23,7 +19,18 @@ script:
 
 after_success:
   - pip install twine
-  - twine upload dist/*
+
+deploy:
+  - provider: script
+    script: twine upload dist/*
+    on:
+      branch: master
+  - provider: script
+      script: twine upload dist/*
+      on:
+        tag: true
+
+
 
 env:
   - ES_DOC=doc

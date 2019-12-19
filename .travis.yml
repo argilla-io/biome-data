@@ -10,8 +10,14 @@ python:
 install:
   - pip install -U pip
   - pip install -U six
-  - make dev
+
+script:
+  - make dev install
+
+after_success:
+  - pip install twine
+  - twine upload dist/*
 
 env:
   - ES_DOC=doc
-script: make test
+

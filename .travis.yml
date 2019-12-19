@@ -21,6 +21,7 @@ after_success:
   - pip install twine
 
 deploy:
+  skip_cleanup: true
   provider: script
   script: twine upload dist/*
   on:

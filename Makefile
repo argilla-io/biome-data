@@ -8,8 +8,8 @@ check: ## applies a code pylint with autopep8 reformating
 test: check ## launch package tests
 	@pytest
 
-dist: ## run tests and build a package distribution
-	@pytest && python setup.py sdist bdist_wheel
+dist: test ## run tests and build a package distribution
+	@python setup.py sdist bdist_wheel
 
 install: ## install package
 	@pip install .

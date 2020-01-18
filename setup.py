@@ -9,8 +9,8 @@ def about_info(package: str):
     """Fetch about info """
     root = os.path.abspath(os.path.dirname(__file__))
     with open(
-        os.path.join(root, "src", package.replace("-", "/"), "about.py"),
-        encoding="utf8",
+            os.path.join(root, "src", package.replace("-", "/"), "about.py"),
+            encoding="utf8",
     ) as f:
         about = {}
         exec(f.read(), about)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
             "python-dateutil<2.8.1",  # botocore (imported from allennlp) has this restriction
             "s3fs~=0.4.0",
         ],
-        extras_require={"testing": ["pytest", "pytest-cov", "pytest-pylint", "black"]},
+        extras_require={"testing": ["pytest", "pytest-cov", "pytest-pylint", "black", "GitPython"]},
         python_requires=">=3.6.1",
         zip_safe=False,
     )

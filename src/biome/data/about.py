@@ -1,7 +1,7 @@
 from datetime import datetime
 
 # See https://www.python.org/dev/peps/pep-0440/ for version numbering
-__version__ = "0.2.0.dev"
+__version__ = "0.2.0"
 
 
 def package_version(version: str):

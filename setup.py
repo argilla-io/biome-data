@@ -45,7 +45,7 @@ if __name__ == "__main__":
             "python-dateutil<2.8.1",  # botocore (imported from allennlp) has this restriction
             "s3fs~=0.4.0",
         ],
-        extras_require={"testing": ["pytest", "pytest-cov", "pytest-pylint", "black", "GitPython"]},
+        extras_require={"testing": ["pytest", "pytest-cov", "pytest-pylint~=0.14.0", "black", "GitPython"]},
         python_requires=">=3.6.1",
         zip_safe=False,
     )

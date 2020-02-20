@@ -1,7 +1,5 @@
 import os
-import tempfile
 
-from biome.data.sinks.helpers import store_dataset
 from biome.data.sources import DataSource
 
 from tests import TESTS_BASEPATH
@@ -11,28 +9,14 @@ FILES_PATH = os.path.join(TESTS_BASEPATH, "resources")
 
 
 class JsonDatasourceTest(DaskSupportTest):
-    def test_read_and_write_json(self):
+    def test_read_json(self):
         file_path = os.path.join(FILES_PATH, "dataset_source.jsonl")
 
         datasource = DataSource(format="json", path=file_path)
+        data_frame = datasource.to_dataframe().compute()
 
-        tmpfile = tempfile.mkdtemp()
-        store_dataset(datasource.to_bag(), dict(path=tmpfile))
-
-        stored_dataset = DataSource(format="json", path=os.path.join(tmpfile, "*.part"))
-
-        stored = stored_dataset.to_bag().compute()
-        read = datasource.to_bag().compute()
-
-        assert len(stored) == len(read)
-
-        def drop_keys(data, keys):
-            return {k: v for k, v in data.items() if k not in keys}
-
-        variable_keys = ["resource", "id"]
-
-        for a, b in zip(read, stored):
-            assert drop_keys(a, variable_keys) == drop_keys(a, variable_keys)
+        assert len(data_frame) > 0
+        self.assertTrue("path" in data_frame.columns)
 
     def test_flatten_json(self):
         file_path = os.path.join(FILES_PATH, "to-be-flattened.jsonl")

@@ -1,5 +1,4 @@
 import logging
-import os.path
 from glob import glob
 from typing import Optional, Union, List
 from urllib.parse import urlparse
@@ -15,7 +14,7 @@ ID = "id"
 RESOURCE = "resource"
 PATH_COLUMN_NAME = "path"
 
-_logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+__LOGGER = logging.getLogger(__name__)
 # TODO: The idea is to make the readers a class and define a metaclass that they have to follow.
 #       For now, all reader methods have to return a dask.DataFrame. See ElasticsearchDataFrameReader
 
@@ -86,8 +85,8 @@ def from_json(
     """
 
     def json_engine(*args, flatten: bool = False, **kwargs) -> pd.DataFrame:
-        df = pd.read_json(*args, **kwargs)
-        return flatten_dataframe(df) if flatten else df
+        data_frame = pd.read_json(*args, **kwargs)
+        return flatten_dataframe(data_frame) if flatten else data_frame
 
     path_list = _get_file_paths(path)
 
@@ -148,9 +147,9 @@ def from_excel(path: Union[str, List[str]], **params) -> dd.DataFrame:
     dds = []
     for path_name in path_list:
         parts = delayed(pd.read_excel)(path_name, **params)
-        df = dd.from_delayed(parts).fillna("")
-        df[PATH_COLUMN_NAME] = path_name
-        dds.append(df)
+        data_frame = dd.from_delayed(parts).fillna("")
+        data_frame[PATH_COLUMN_NAME] = path_name
+        dds.append(data_frame)
 
     return dd.concat(dds)
 
@@ -187,7 +186,7 @@ class ElasticsearchDataFrameReader(DataFrameReader):
     __ELASTIC_ID_FIELD = "_id"
 
     @classmethod
-    def read(
+    def read(  # pylint: disable=arguments-differ
         cls,
         source: Union[str, List[str]],
         index: str,
@@ -228,15 +227,15 @@ class ElasticsearchDataFrameReader(DataFrameReader):
 
         url = urlparse(es_host)
         client = DaskElasticClient(host=url.hostname, port=url.port, wan_only=True)
-        df = client.read(
+        data_frame = client.read(
             query=query, index=index, doc_type=doc_type, **kwargs
         ).persist()
 
         if flatten_content:
-            df = flatten_dask_dataframe(df)
-        df[RESOURCE] = f"{index}/{doc_type}"
+            data_frame = flatten_dask_dataframe(data_frame)
+        data_frame[RESOURCE] = f"{index}/{doc_type}"
 
-        if cls.__ELASTIC_ID_FIELD in df.columns:
-            df = df.rename(columns={cls.__ELASTIC_ID_FIELD: ID})
+        if cls.__ELASTIC_ID_FIELD in data_frame.columns:
+            data_frame = data_frame.rename(columns={cls.__ELASTIC_ID_FIELD: ID})
 
-        return df
+        return data_frame

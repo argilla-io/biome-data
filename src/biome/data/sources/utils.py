@@ -44,26 +44,24 @@ def make_paths_relative(yaml_dirname: str, cfg_dict: Dict, path_keys: List[str] 
     path_keys
         If not None, it will only try to modify the `cfg_dict` values corresponding to the `path_keys`.
     """
-    for k, v in cfg_dict.items():
-        if isinstance(v, dict):
-            make_paths_relative(yaml_dirname, v, path_keys)
+    for key, value in cfg_dict.items():
+        if isinstance(value, dict):
+            make_paths_relative(yaml_dirname, value, path_keys)
 
-        if path_keys and k not in path_keys:
+        if path_keys and key not in path_keys:
             continue
 
-        if is_relative_file_system_path(v):  # returns False if v is not a str
-            cfg_dict[k] = os.path.join(yaml_dirname, v)
+        if is_relative_file_system_path(value):  # returns False if value is not a str
+            cfg_dict[key] = os.path.join(yaml_dirname, value)
 
         # cover lists as well
-        if isinstance(v, list):
-            cfg_dict[k] = [
+        if isinstance(value, list):
+            cfg_dict[key] = [
                 os.path.join(yaml_dirname, path)
                 if is_relative_file_system_path(path)
                 else path
-                for path in v
+                for path in value
             ]
-
-        pass
 
 
 def is_relative_file_system_path(string: str) -> bool:
@@ -107,50 +105,49 @@ def _dict_to_list(row: List[Dict]) -> Optional[dict]:
         {"name":["Frank","Oliver"], "lastName":["Ocean", "Sacks"]}
     """
     try:
-        for r in row:
-            if isinstance(r, list):
-                row = r
+        for row_i in row:
+            if isinstance(row_i, list):
+                row = row_i
         return pd.DataFrame(row).to_dict(orient="list")
     except (ValueError, TypeError):
         return None
 
 
-def _columns_analysis(df: pd.DataFrame) -> Tuple[List[str], List[str], List[str]]:
+def _columns_analysis(
+    data_frame: pd.DataFrame
+) -> Tuple[List[str], List[str], List[str]]:
     dicts = []
     lists = []
     unmodified = []
 
-    def is_dict(e) -> bool:
-        return isinstance(e, dict)
-
-    def is_list_of_structured_data(e) -> bool:
-        if isinstance(e, list):
-            for x in e:
-                if isinstance(x, (dict, list)):
+    def is_list_of_structured_data(elem) -> bool:
+        if isinstance(elem, list):
+            for elem_i in elem:
+                if isinstance(elem_i, (dict, list)):
                     return True
         return False
 
-    for c in df.columns:
-        column_data = df[c].dropna()
+    for column in data_frame.columns:
+        column_data = data_frame[column].dropna()
         element = column_data.iloc[0] if not column_data.empty else None
 
         current_list = unmodified
-        if is_dict(element):
+        if isinstance(element, dict):
             current_list = dicts
         elif is_list_of_structured_data(element):
             current_list = lists
-        current_list.append(c)
+        current_list.append(column)
 
     return dicts, lists, unmodified
 
 
-def flatten_dask_dataframe(dataframe: dd.DataFrame) -> dd.DataFrame:
+def flatten_dask_dataframe(data_frame: dd.DataFrame) -> dd.DataFrame:
     """
     Flatten an dataframe adding nested values as new columns
     and dropping the old ones
     Parameters
     ----------
-    dataframe
+    data_frame
         The original dask DataFrame
 
     Returns
@@ -160,34 +157,34 @@ def flatten_dask_dataframe(dataframe: dd.DataFrame) -> dd.DataFrame:
 
     """
     # We must materialize some data for compound the new flatten DataFrame
-    meta_flatten = flatten_dataframe(dataframe.head(1))
+    meta_flatten = flatten_dataframe(data_frame.head(1))
 
-    def _flatten_stage(df: pd.DataFrame) -> pd.DataFrame:
-        new_df = flatten_dataframe(df)
+    def _flatten_stage(data_frame_i: pd.DataFrame) -> pd.DataFrame:
+        new_df = flatten_dataframe(data_frame_i)
         for column in new_df.columns:
             # we append the new columns to the original dataframe
-            df[column] = new_df[column]
+            data_frame_i[column] = new_df[column]
 
-        return df
+        return data_frame_i
 
-    dataframe = dataframe.map_partitions(
+    data_frame = data_frame.map_partitions(
         _flatten_stage,
-        meta={**dataframe.dtypes.to_dict(), **meta_flatten.dtypes.to_dict()},
+        meta={**data_frame.dtypes.to_dict(), **meta_flatten.dtypes.to_dict()},
     )
-    return dataframe[meta_flatten.columns]
+    return data_frame[meta_flatten.columns]
 
 
-def flatten_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    dict_columns, list_columns, unmodified_columns = _columns_analysis(df)
+def flatten_dataframe(data_frame: pd.DataFrame) -> pd.DataFrame:
+    dict_columns, list_columns, unmodified_columns = _columns_analysis(data_frame)
 
-    if len(df.columns) == len(unmodified_columns):
-        return df
+    if len(data_frame.columns) == len(unmodified_columns):
+        return data_frame
 
     dfs = []
     for column in list_columns:
         column_df = pd.DataFrame(
-            data=[data for data in df[column].apply(_dict_to_list) if data],
-            index=df.index,
+            data=[data for data in data_frame[column].apply(_dict_to_list) if data],
+            index=data_frame.index,
         )
         column_df.columns = [
             f"{column}.*.{column_df_column}" for column_df_column in column_df.columns
@@ -196,7 +193,8 @@ def flatten_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     for column in dict_columns:
         column_df = pd.DataFrame(
-            data=[data if data else {} for data in df[column]], index=df.index
+            data=[data if data else {} for data in data_frame[column]],
+            index=data_frame.index,
         )
         column_df.columns = [
             f"{column}.{column_df_column}" for column_df_column in column_df.columns
@@ -204,7 +202,7 @@ def flatten_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         dfs.append(column_df)
 
     flatten = flatten_dataframe(pd.concat(dfs, axis=1))
-    return pd.concat([df[unmodified_columns], flatten], axis=1)
+    return pd.concat([data_frame[unmodified_columns], flatten], axis=1)
 
 
 def save_dict_as_yaml(dictionary: dict, path: str, create_dirs: bool = True) -> str:

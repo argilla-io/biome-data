@@ -8,18 +8,14 @@ from typing import Optional
 import dask
 import dask.multiprocessing
 from dask.cache import Cache
+from dask.distributed import Client, LocalCluster
 from dask.utils import parse_bytes
 
 from biome.data import ENV_DASK_CACHE_SIZE, DEFAULT_DASK_CACHE_SIZE
 
-try:
-    from yaml import CLoader as Loader, CDumper as Dumper
-except ImportError:
-    from yaml import Loader, Dumper
+__LOGGER = logging.getLogger(__name__)
 
-from dask.distributed import Client, LocalCluster
-
-__logger = logging.getLogger(__name__)
+__DASK_CLIENT = None
 
 
 def get_nested_property_from_data(data: Dict, property_key: str) -> Optional[Any]:
@@ -48,14 +44,16 @@ def get_nested_property_from_data(data: Dict, property_key: str) -> Optional[Any
     """
     if data is None or not isinstance(data, Dict):
         return None
+
     if property_key in data:
         return data[property_key]
-    else:
-        sep = "."
-        splitted_key = property_key.split(sep)
-        return get_nested_property_from_data(
-            data.get(splitted_key[0]), sep.join(splitted_key[1:])
-        )
+
+    sep = "."
+    splitted_key = property_key.split(sep)
+
+    return get_nested_property_from_data(
+        data.get(splitted_key[0]), sep.join(splitted_key[1:])
+    )
 
 
 def configure_dask_cluster(
@@ -78,14 +76,10 @@ def configure_dask_cluster(
     A new dask Client
 
     """
-    global dask_client
+    global __DASK_CLIENT  # pylint: disable=global-statement
 
-    try:
-        if dask_client:
-            return dask_client
-    except Exception as e:
-        __logger.debug(e)
-        pass
+    if __DASK_CLIENT:
+        return __DASK_CLIENT
 
     def create_dask_client(
         dask_cluster: str, cache_size: Optional[int], workers: int, worker_mem: int
@@ -133,23 +127,21 @@ def configure_dask_cluster(
     if isinstance(worker_memory, str):
         worker_memory = parse_bytes(worker_memory)
 
-    dask_client = create_dask_client(
+    __DASK_CLIENT = create_dask_client(
         dask_cluster, dask_cache_size, workers=n_workers, worker_mem=worker_memory
     )
 
-    return dask_client
+    return __DASK_CLIENT
 
 
 @atexit.register
 def close_dask_client():
-    global dask_client
+    global __DASK_CLIENT  # pylint: disable=global-statement
 
     try:
-        dask_client.close(timeout=10)
-        if dask_client and dask_client.cluster:
-            dask_client.cluster.close(timeout=10)
-    except Exception as e:
-        __logger.debug(e)
-        pass
+        __DASK_CLIENT.close(timeout=10)
+        __DASK_CLIENT.cluster.close(timeout=10)
+    except Exception as err:  # pylint: disable=broad-except
+        __LOGGER.debug(err)
     finally:
-        dask_client = None
+        __DASK_CLIENT = None

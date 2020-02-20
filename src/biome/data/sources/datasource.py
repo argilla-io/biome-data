@@ -86,19 +86,22 @@ class DataSource:
         source_reader, defaults = self._find_reader(format)
         reader_arguments = {**defaults, **kwargs, **self.attributes}
 
-        df = (
+        data_frame = (
             source_reader(source, **reader_arguments)
             if source
             else source_reader(**reader_arguments)
         )
-        df = df.dropna(how="all").rename(
-            columns={column: column.strip() for column in df.columns.astype(str).values}
+        data_frame = data_frame.dropna(how="all").rename(
+            columns={
+                column: column.strip()
+                for column in data_frame.columns.astype(str).values
+            }
         )
         # TODO allow disable index reindex
-        if "id" in df.columns:
-            df = df.set_index("id")
+        if "id" in data_frame.columns:
+            data_frame = data_frame.set_index("id")
 
-        self._df = df
+        self._df = data_frame
 
     @classmethod
     def add_supported_format(
@@ -116,8 +119,7 @@ class DataSource:
             Default parameters for the parser function
         """
         if format_key in cls.SUPPORTED_FORMATS.keys():
-            cls._logger.warning("Already defined format {}".format(format_key))
-            pass
+            cls._logger.warning("Already defined format %s", format_key)
 
         cls.SUPPORTED_FORMATS[format_key] = (parser, default_params or {})
 
@@ -177,8 +179,8 @@ class DataSource:
                 mapped_dataframe[parameter_name] = self._df[data_features].apply(
                     self._to_dict_or_any, axis=1, meta=(None, "object")
                 )
-            except KeyError as e:
-                raise KeyError(e, f"Did not find {data_features} in the data source!")
+            except KeyError as err:
+                raise KeyError(err, f"Did not find {data_features} in the data source!")
 
         return mapped_dataframe[list(self.mapping.keys())]
 
@@ -187,21 +189,20 @@ class DataSource:
         """Transform a `dask.dataframe.Series` to a dict or a single value, depending on its length."""
         if len(value) > 1:
             return value.to_dict()
-        else:
-            return value.iloc[0]
+        return value.iloc[0]
 
     @staticmethod
     def _row2dict(
         row: Tuple, columns: List[str], default_path: Optional[str] = None
     ) -> Dict[str, Any]:
         """ Convert a pandas row into a dict object """
-        id = row[0]
+        idx = row[0]
         data = row[1:]
 
         # For duplicated column names, pandas append a index prefix with dots '.' We prevent
         # index failures by replacing for '_'
         sanitized_columns = [column.replace(".", "_") for column in columns]
-        data = dict([(ID, id)] + list(zip(sanitized_columns, data)))
+        data = dict([(ID, idx)] + list(zip(sanitized_columns, data)))
 
         # DataFrame.read_csv allows include path column called `path`
         data[RESOURCE] = data.get(
@@ -313,7 +314,7 @@ class DataSource:
 
         return save_dict_as_yaml(yaml_dict, path)
 
-    def head(self, n: int = 10) -> "pandas.DataFrame":
+    def head(self, n: int = 10) -> "pandas.DataFrame":  # pylint: disable=invalid-name
         """Allows for a peek into the data source showing the first n rows.
 
         Parameters

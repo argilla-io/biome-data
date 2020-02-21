@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 
 def about_info(package: str):
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         url="https://www.recogn.ai/",
         long_description=open("README.md").read(),
         long_description_content_type="text/markdown",
-        packages=find_packages("src"),
+        packages=find_namespace_packages("src"),
         package_dir={"": "src"},
         install_requires=[
             "dask[complete]~=2.10.0",

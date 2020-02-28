@@ -91,11 +91,16 @@ class DataSource:
             if source
             else source_reader(**reader_arguments)
         )
-        data_frame = data_frame.dropna(how="all").rename(
-            columns={
-                column: column.strip()
-                for column in data_frame.columns.astype(str).values
-            }
+        data_frame = (
+            data_frame
+            .dropna(how="all")
+            .fillna("")
+            .rename(
+                columns={
+                    column: column.strip()
+                    for column in data_frame.columns.astype(str).values
+                }
+            )
         )
         # TODO allow disable index reindex
         if "id" in data_frame.columns:

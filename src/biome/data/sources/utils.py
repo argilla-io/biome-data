@@ -114,7 +114,7 @@ def _dict_to_list(row: List[Dict]) -> Optional[dict]:
 
 
 def _columns_analysis(
-    data_frame: pd.DataFrame
+    data_frame: pd.DataFrame,
 ) -> Tuple[List[str], List[str], List[str]]:
     dicts = []
     lists = []

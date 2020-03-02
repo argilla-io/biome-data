@@ -91,17 +91,26 @@ class DataSource:
             if source
             else source_reader(**reader_arguments)
         )
-        data_frame = data_frame.dropna(how="all").rename(
-            columns={
-                column: column.strip()
-                for column in data_frame.columns.astype(str).values
-            }
-        )
+
+        self.__sanitize_dataframe(data_frame)
         # TODO allow disable index reindex
         if "id" in data_frame.columns:
             data_frame = data_frame.set_index("id")
 
         self._df = data_frame
+
+    def __sanitize_dataframe(self, data_frame) -> None:
+        data_frame = data_frame.dropna(how="all")
+        data_frame.columns = [
+            column.strip() for column in data_frame.columns.astype(str).values
+        ]
+        for column in data_frame.columns:
+            try:
+                data_frame[column] = data_frame[column].fillna(value="")
+            except ValueError:
+                self._logger.warning(
+                    "Cannot set NaN's as empty string for column %s", column
+                )
 
     @classmethod
     def add_supported_format(

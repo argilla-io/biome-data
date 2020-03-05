@@ -92,14 +92,14 @@ class DataSource:
             else source_reader(**reader_arguments)
         )
 
-        self.__sanitize_dataframe(data_frame)
+        data_frame = self.__sanitize_dataframe(data_frame)
         # TODO allow disable index reindex
         if "id" in data_frame.columns:
             data_frame = data_frame.set_index("id")
 
         self._df = data_frame
 
-    def __sanitize_dataframe(self, data_frame) -> None:
+    def __sanitize_dataframe(self, data_frame) -> dd.DataFrame:
         data_frame = data_frame.dropna(how="all")
         data_frame.columns = [
             column.strip() for column in data_frame.columns.astype(str).values
@@ -111,6 +111,7 @@ class DataSource:
                 self._logger.warning(
                     "Cannot set NaN's as empty string for column %s", column
                 )
+        return data_frame
 
     @classmethod
     def add_supported_format(
@@ -189,7 +190,10 @@ class DataSource:
                     self._to_dict_or_any, axis=1, meta=(None, "object")
                 )
             except KeyError as err:
-                raise KeyError(err, f"Did not find {data_features} in the data source!")
+                raise KeyError(
+                    err,
+                    f"Did not find {data_features} in the data source columns {self._df.columns}!",
+                )
 
         return mapped_dataframe[list(self.mapping.keys())]
 
